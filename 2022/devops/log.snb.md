@@ -7,6 +7,7 @@ For ease of use and handing over issues, **this log should be in reverse chronol
 
 ## 2022-08-03 add devx permissions to upgrade s2
 https://github.com/sourcegraph/infrastructure/pull/3720
+https://github.com/sourcegraph/deploy-sourcegraph-managed/pull/814
 
 todo:
 - add workload identity service account to be able to upgrade s2
