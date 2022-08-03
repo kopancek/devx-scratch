@@ -5,6 +5,12 @@ To add an entry, just add an H2 header with ISO 8601 format.
 The first line should be a list of everyone involved in the entry.
 For ease of use and handing over issues, **this log should be in reverse chronological order**, with the most recent entry at the top.
 
+## 2022-08-03 add devx permissions to upgrade s2
+https://github.com/sourcegraph/infrastructure/pull/3720
+
+todo:
+- add workload identity service account to be able to upgrade s2
+
 ## 2022-07-04 deploy-sourcegraph-cloud renovate scheduling
 
 @bobheadxi
