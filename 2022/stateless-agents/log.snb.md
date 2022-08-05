@@ -2,6 +2,14 @@
 
 Notes on https://github.com/sourcegraph/sourcegraph/issues/30233. **This log should be in reverse chronological order.**
 
+## 2022-08-05
+
+@jhchabran 
+
+@bobheadxi recently spotted and fixed an issue with the script that refresh the git references volume that is used to cache git operations on our main repository. We missed during the review that the patch while addressing the main problem was missing a small update that prevented it to work proprerly. See the associated pr over here: https://github.com/sourcegraph/infrastructure/pull/3774 
+
+This also made me realize that we should be alerted when something like this goes wrong, so I created https://github.com/sourcegraph/sourcegraph/issues/40010 to remember us to put some alerting for when this pipeline fails.
+
 ## 2022-07-18 
 
 @jhchabran and @burmudar
