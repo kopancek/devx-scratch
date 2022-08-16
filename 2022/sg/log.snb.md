@@ -3,6 +3,33 @@
 DevX teammates hacking on `sg` log. To add an entry, just add an H2 header starting with the ISO 8601 format, a topic.
 **This log should be in reverse chronological order.**
 
+## 2022-08-16
+
+@burmudar I got nerd sniped by [Nick's PR](https://github.com/sourcegraph/sourcegraph/pull/40093) where he was trying to get the frontend client code to use esbuild which is able to build js code faster. I got intruiged by why the one error he was getting didn't show anything? So I took some inspiration from @JH/@Robert and I went digging!
+
+Ultimately, I found the reason why we were getting that error - which isn't even a elm error but I'd say a series of bad error reporting 😅.
+
+`esbuild-plugin-elm` calls compileToStringSync from `node-elm-compiler`, which on any error throws [`throw 'Compilation failure.'`](https://sourcegraph.com/github.com/rtfeldman/node-elm-compiler/-/blob/src/index.ts?L181:5)). Since it assumed that the elm compiler would have outputted something about why compilation failed.
+
+Going into `node-elm-compiler` and printing out the result of `compileSync` at https://sourcegraph.com/github.com/rtfeldman/node-elm-compiler/-/blob/src/index.ts?L174, we get
+```
+{"error":{"errno":-2,"code":"ENOENT","syscall":"spawnSync ./node_modules/.bin/elm","path":"./node_modules/.bin/elm","spawnargs":["make","/Users/william/code/sourcegraph/client/web/src/search/results/components/compute/src/Main.elm","--debug","--output","/var/folders/1r/5z42n9p52zv8rfp93gxc1vfr0000gn/T/2022715-47767-9g57lu.z9y6q.js"]},"status":null,"signal":null,"output":null,"pid":48407,"stdout":null,"stderr":null}
+```
+So some internal node failure is happening? Curiously if we look at the start of `index.ts` we'll find a function that converts err codes to legable errors ... and `ENOENT` means that the Elm executable was not found. So why is `node-elm-compiler` getting the wrong path ?
+
+If we look at the executable it is trying to execute `./node_modules/.bin/elm`, and indeed with some strategic log statements the relative path `.` points to `sourcegraph/node_modules/esbuild-plugin-elm/` thus unlikely a relative path is going to work. It would be better to use a absolute path.
+
+So to fix it, we have to tell `esbuild-plugin-elm` to resolve the `./node_modules/.bin/elm` to its absolute path. I've patched `esbuild-plugin-elm/index.js` in `sourcegraph/node_modules` with:
+```
+const getPathToElm = () => {
+  if (fileExists('./node_modules/.bin/elm')) return path.resolve('./node_modules/.bin/elm')
+  if (cmdExists('elm')) return 'elm'
+
+  throw new Error('Could not find `elm` executable. You can install it with `yarn add elm` or `npm install elm`')
+};
+```
+With this fix applied it worked! I've also submitted a fix to the upstream project `esbuild-plugin-elm` [here](https://github.com/phenax/esbuild-plugin-elm/pull/22)
+
 ## 2022-07-07
 
 @burmudar I've been investigating why Backcompat tests annotations are not rendering properly. Recently, we changed the rendering slightly to include a Grafana link and try as one might, it just isn't rendering. For context, the Backcompat tests are kicked off by `dev/ci/go-backcompat/test.sh`, which in a nutshell **checks out an older version of the code** and runs tests to check for backwards compatibility. A slight gotcha with this is, since an older revision is checked out, it means older ci scripts are checked out too! I double checked the md5 sums of the `annotate.sh` script to confirm that yes, it does run an older version of the scripts and after reflecting on it, it does make sense why that happens.
