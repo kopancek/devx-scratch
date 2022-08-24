@@ -2,6 +2,12 @@
 
 DevX support rotation log. To add an entry, just add an H2 header with ISO 8601 format. The first line should be a list of everyone involved in the entry. For ease of use and handing over issues, **this log should be in reverse chronological order**, with the most recent entry at the top.
 
+## 2022-08-24
+
+@jhchabran This morning [INC-140] happenend and as it affected DotCom, I jumped in to help. Olaf was already there and quickly identified the problem. We rolled out a fix and I expedited its deployment. 
+
+Olaf didn't know about `sg ci build`, so we showed it to him. Strangely though, adding his token through `sg` didn't work, so we need to double check that it's working. 
+
 ## 2022-07-13 
 
 @jhchabran I've added two new how-tos, covering how to deal with custom step notifications and soft failures: https://github.com/sourcegraph/sourcegraph/pull/38718
