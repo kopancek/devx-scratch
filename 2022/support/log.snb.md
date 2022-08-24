@@ -4,7 +4,7 @@ DevX support rotation log. To add an entry, just add an H2 header with ISO 8601 
 
 ## 2022-08-24
 
-@jhchabran This morning [INC-140] happenend and as it affected DotCom, I jumped in to help. Olaf was already there and quickly identified the problem. We rolled out a fix and I expedited its deployment. 
+@jhchabran This morning [INC-140] happenend and as it affected DotCom, I jumped in to help. Olaf was already there and quickly identified the problem. We rolled out a fix and I expedited its deployment. It was a frontend code issue that broke the syntax highlighting.
 
 Olaf didn't know about `sg ci build`, so we showed it to him. Strangely though, adding his token through `sg` didn't work, so we need to double check that it's working. 
 
