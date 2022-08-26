@@ -12,6 +12,7 @@ To add an entry, just add an H2 header starting with the ISO 8601 format, a topi
 ### Rebooting our efforts to migrate our logs
 
 I'm closing https://github.com/sourcegraph/sourcegraph/issues/36382 as it still references GitStart and I want to have a nice issue that all of us can pick and have all of what we need to use it as a filler task as we discussed in our team sync.
+I have created https://github.com/sourcegraph/sourcegraph/issues/40896 which provides a clear path on how to do a migration on your own, without any external help. 
 
 ### Actual migration PR
 
