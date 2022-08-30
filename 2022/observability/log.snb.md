@@ -5,6 +5,54 @@ DevX teammates hacking on Sourcegraph's observability libraries and tooling, bot
 To add an entry, just add an H2 header starting with the ISO 8601 format, a topic.
 **This log should be in reverse chronological order.**
 
+## 2022-08-30 Deploying `otel-collector` to k8s (no helm)
+
+@bobheadxi @jhchabran @sanderginn
+
+The docs on [how to test](https://github.com/sourcegraph/deploy-sourcegraph/blob/master/README.dev.md) `deploy-sourcegraph` have commands listed without install instructions: [yj](https://github.com/sourcegraph/yj) and [jy](https://github.com/sourcegraph/jy). We installed
+those (`go install <repo>@latest`), then run (we used `kind` instead of minikube):
+
+```shell
+find base -name '*Deployment.yaml' | while read i; do yj < $i | jq 'walk(if type == "object" then del(.resources) else . end)' | jy -o $i; done
+find base -name '*PersistentVolumeClaim.yaml' | while read i; do yj < $i | jq 'del(.spec.storageClassName)' | jy -o $i; done
+find base -name '*StatefulSet.yaml' | while read i; do yj < $i | jq 'del(.spec.volumeClaimTemplates[] | .spec.storageClassName) | del(.spec.template.spec.containers[] | .resources)' | jy -o $i; done
+minikube start
+kubectl create ns src
+kubens src
+./kubectl-apply-all.sh
+kubectl expose deployment sourcegraph-frontend --type=NodePort --name sourcegraph --port=3080 --target-port=3080
+minikube service list
+```
+
+After the services came online, added the following to the site config:
+
+```json
+{
+    "observability.tracing": {
+        "type": "opentelemetry",
+        "sampling": "selective",
+        "debug": true
+    }
+}
+```
+
+We needed to open the `hostPort` for 4317 (and 4318 for HTTP) on the `otel-agent` DaemonSet pods.
+
+The configuration for the logging exporter for the `otel-collector` needed to be set to `logLevel: debug` to actually produce trace content, instead of useless log lines. Since we used the config bundled with the image, @bobheadxi tested it in his Docker Compose setup.
+
+Next, we generated the Jaeger backend overlay (after removing `http://` from `JAEGER_HOST` in `otel-collector.Deployment.yaml` in the overlay directory):
+```shell
+./overlay-generate-cluster.sh jaeger generated-cluster
+```
+
+Then applied the generated manifests
+```shell
+kubectl apply --prune -l deploy=sourcegraph -f generated-cluster --recursive
+```
+
+After opening Jaeger we saw that Zoekt spans were missing, which was fixed by setting `OPENTELEMETRY_DISABLED=false` on Zoekt's containers. After that everything came through neatly!
+
+
 ## 2022-07-04 Safe logging
 
 @bobheadxi
@@ -13,20 +61,21 @@ Consider the following:
 
 ```go
 type Data struct {
-    log log.Logger // interface
-    // ...
+log log.Logger // interface
+// ...
 }
 
 func (d *Data) Foobar() { d.log.Debug("foobar") }
 ```
 
-Because [`log.Logger` is a pointer type (interface)](https://sourcegraph.com/github.com/sourcegraph/log/-/blob/logger.go), improper instantiation of `Data` can be fatal since the zero value of the field will be nil, as happened in https://github.com/sourcegraph/sourcegraph/pull/36457 and https://github.com/sourcegraph/sourcegraph/pull/38185.
+Because [`log.Logger` is a pointer type (interface)](https://sourcegraph.com/github.com/sourcegraph/log/-/blob/logger.go), improper instantiation of `Data` can be fatal since the zero value of the field will be nil, as happened in https://github.com/sourcegraph/sourcegraph/pull/36457
+and https://github.com/sourcegraph/sourcegraph/pull/38185.
 I considered the possibility of introducing a "safe zero type" version of `log.Logger`, that one could use like so:
 
 ```go
 type Data struct {
-    log log.SafeLogger // value type
-    // ...
+log log.SafeLogger // value type
+// ...
 }
 
 func (d *Data) Foobar() { d.log.Debug("foobar") } // safe
@@ -37,36 +86,36 @@ Sketch:
 ```go
 // SafeLogger is a Logger that is safe for use as a zero value.
 type SafeLogger struct {
-    Scope       string
-    Description string
+Scope       string
+Description string
 
-    // logger is the underlying Logger instance instantiated with From.
-    logger Logger
-    // loggerOnce must be a pointer because sync.Once should never be copied.
-    loggerOnce *sync.Once
+// logger is the underlying Logger instance instantiated with From.
+logger Logger
+// loggerOnce must be a pointer because sync.Once should never be copied.
+loggerOnce *sync.Once
 }
 
 var _ Logger = SafeLogger{}
 
 // From instantiates SafeLogger explicitly from a parent logger.
 func (s SafeLogger) From(logger Logger) Logger {
-    if s.loggerOnce == nil {
-        s.loggerOnce = &sync.Once{}
-    }
-    s.loggerOnce.Do(func() {
-        if logger == nil {
-            // Create a new top-level logger
-            s.logger = Scoped(s.Scope, s.Description)
-        }
-        s.logger = logger.Scoped(s.Scope, s.Description)
-    })
-    return s.logger
+if s.loggerOnce == nil {
+s.loggerOnce = &sync.Once{}
+}
+s.loggerOnce.Do(func () {
+if logger == nil {
+// Create a new top-level logger
+s.logger = Scoped(s.Scope, s.Description)
+}
+s.logger = logger.Scoped(s.Scope, s.Description)
+})
+return s.logger
 }
 
 // Concretely implement log.Logger
 
 func (s SafeLogger) Scoped(scope string, description string) Logger {
-    return s.From(nil).Scoped(scope, description)
+return s.From(nil).Scoped(scope, description)
 }
 
 // ...etc
@@ -125,7 +174,8 @@ Update - it turns out the above is not that simple, and direct usages of OpenTra
 
 https://sourcegraph.com/github.com/sourcegraph/sourcegraph@652f77c01967d979237e88e7fccc36873121d391/-/blob/cmd/frontend/graphqlbackend/graphqlbackend.go?L50-59
 
-I reverted the second PR above in https://github.com/sourcegraph/sourcegraph/pull/37979 , and in the interest of focusing on codeintel as outlined in https://github.com/sourcegraph/sourcegraph/issues/37778 I'm going to give up efforts on `internal/trace` and focus on our tracer implementations (`internal/trace.Tracer` and `internal/tracer`) to leverage the OTel bridge: https://pkg.go.dev/go.opentelemetry.io/otel/bridge/opentracing - this should cover most codeintel stuff, which uses `internal/observation` (which, in turn, uses all the above).
+I reverted the second PR above in https://github.com/sourcegraph/sourcegraph/pull/37979 , and in the interest of focusing on codeintel as outlined in https://github.com/sourcegraph/sourcegraph/issues/37778 I'm going to give up efforts on `internal/trace` and focus on our tracer
+implementations (`internal/trace.Tracer` and `internal/tracer`) to leverage the OTel bridge: https://pkg.go.dev/go.opentelemetry.io/otel/bridge/opentracing - this should cover most codeintel stuff, which uses `internal/observation` (which, in turn, uses all the above).
 
 I went back, banged my head on this a bit more, and I think I understand how this works better now and how to hook into everything correctly: https://github.com/sourcegraph/sourcegraph/pull/37984 - how this works:
 
@@ -140,13 +190,14 @@ Will test all this tomorrow.
 
 @jhchabran
 
-While taking a look at our Sentry backlog, I noticed that GitServer is kinda light on its use of logging scopes. Opened a [very small PR as a draft](https://github.com/sourcegraph/sourcegraph/pull/37830) to bring this forward to the team as a low prio item. 
+While taking a look at our Sentry backlog, I noticed that GitServer is kinda light on its use of logging scopes. Opened a [very small PR as a draft](https://github.com/sourcegraph/sourcegraph/pull/37830) to bring this forward to the team as a low prio item.
 
 ## 2022-06-23 OpenTelemetry trace export exploration
 
 @bobheadxi
 
-I've been spending a bit of time reading through our tracing code, assessing what it might take to [migrate to OpenTelemetry](https://github.com/sourcegraph/sourcegraph/issues/27386) - there's no opposition to using OpenTelemetry tracing so I think we should just go ahead and do the necessary implementation.
+I've been spending a bit of time reading through our tracing code, assessing what it might take to [migrate to OpenTelemetry](https://github.com/sourcegraph/sourcegraph/issues/27386) - there's no opposition to using OpenTelemetry tracing so I think we should just go ahead and do the necessary
+implementation.
 
 What I've done so far:
 
