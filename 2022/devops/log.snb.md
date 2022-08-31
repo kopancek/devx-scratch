@@ -11,6 +11,62 @@ https://github.com/sourcegraph/deploy-sourcegraph-managed/pull/814
 
 todo:
 - add workload identity service account to be able to upgrade s2
+## 2022-08-31 Merging upstream deploy-sourcegraph into dotcom
+
+@bobheadxi @sanderginn @marekweb @davejrt @burmudar
+
+Started with following the guidance provided [here](https://handbook.sourcegraph.com/departments/engineering/dev/process/deployments/#merging-upstream-deploy-sourcegraph-into-deploy-sourcegraph-forks), but turned out the `master` branch tracking upstream was deleted so we had to recreate it:
+
+```sh
+git fetch upstream
+git checkout --track upstream/master
+```
+
+The process from then on was a complete disaster, the dotcom has diverged a lot from upstream and it was very hard to reconcile, so we just gave up and applied the relevant diffs in https://github.com/sourcegraph/deploy-sourcegraph/pull/4163 by hand.
+
+For parity with existing Grafana Cloud tracing in dotcom, we followed [this guide](https://grafana.com/blog/2021/04/13/how-to-send-traces-to-grafana-clouds-tempo-service-with-opentelemetry-collector/) to update the OpenTelemetry collector exporter configuration:
+
+```sh
+    exporters:
+      # Send to Grafana Cloud Tempo
+      otlp:
+        endpoint: tempo-us-central1.grafana.net:443
+        headers:
+          authorization: Basic $GRAFANA_OTLP_AUTH
+```
+
+Where we get the credentials from [Grafana Cloud -> Configuration -> Data sources -> Tempo](https://sourcegraph.grafana.net/datasources/edit/grafanacloud-traces):
+
+```sh
+GRAFANA_OTLP_AUTH=$(echo -n "<your user id>:<your Tempo api key>" | base64)
+```
+
+We added this to the `grafana-agent` secrets [via Terraform](https://github.com/sourcegraph/infrastructure/commit/0099f712cf81e9197a9b62d7666320f2f32da16f), and configured the OpenTelemetry collector to read from it:
+
+```yaml
+    spec:
+      containers:
+        - name: otel-collector
+          # ...
+          env:
+            - name: GRAFANA_OTLP_AUTH
+              valueFrom:
+                secretKeyRef:
+                  name: grafana-agent-secrets
+                  key: GRAFANA_OTLP_AUTH
+```
+
+A critical mistake comes when applying the `configure/otel-collector` manifests with the ConfigMap added in https://github.com/sourcegraph/deploy-sourcegraph/pull/4163 in dotcom, https://github.com/sourcegraph/deploy-sourcegraph-cloud/pull/17254/files#diff-03b00da2613f69a259341167e857a9a508b0d08258f3b69d45ce7c9aa078f9c2, where I copy paste an existing line:
+
+```diff
+# Deploy kube-dns
+apply configure/kube-dns "$(maybe_exclude_rbac deploy=sourcegraph)"
+
++ # Apply OpenTelemetry collector configuration
++ apply configure/otel-collector "$(maybe_exclude_rbac deploy=sourcegraph)"
+```
+
+This was a grave mistake, and lead to [INC-141](https://app.incident.io/incidents/141) - see the soon-to-be-updated [INC-141 postmortem](https://docs.google.com/document/d/1wF2hhF5LY47oEsW6JkTqhQ25meazv3yqrsK-A7w9nw4/edit#) for more details.
 
 ## 2022-07-04 deploy-sourcegraph-cloud renovate scheduling
 
