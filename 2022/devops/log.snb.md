@@ -5,7 +5,7 @@ To add an entry, just add an H2 header with ISO 8601 format.
 The first line should be a list of everyone involved in the entry.
 For ease of use and handing over issues, **this log should be in reverse chronological order**, with the most recent entry at the top.
 
-## 2022-08-31 Merging upstream deploy-sourcegraph into dotcom
+## 2022-08-31 Deploying otel-collector to sourcegraph.com
 
 @bobheadxi @sanderginn @marekweb @davejrt @burmudar
 
