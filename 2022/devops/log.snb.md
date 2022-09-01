@@ -5,12 +5,6 @@ To add an entry, just add an H2 header with ISO 8601 format.
 The first line should be a list of everyone involved in the entry.
 For ease of use and handing over issues, **this log should be in reverse chronological order**, with the most recent entry at the top.
 
-## 2022-08-03 add devx permissions to upgrade s2
-https://github.com/sourcegraph/infrastructure/pull/3720
-https://github.com/sourcegraph/deploy-sourcegraph-managed/pull/814
-
-todo:
-- add workload identity service account to be able to upgrade s2
 ## 2022-08-31 Merging upstream deploy-sourcegraph into dotcom
 
 @bobheadxi @sanderginn @marekweb @davejrt @burmudar
@@ -67,6 +61,17 @@ apply configure/kube-dns "$(maybe_exclude_rbac deploy=sourcegraph)"
 ```
 
 This was a grave mistake, and lead to [INC-141](https://app.incident.io/incidents/141) - see the soon-to-be-updated [INC-141 postmortem](https://docs.google.com/document/d/1wF2hhF5LY47oEsW6JkTqhQ25meazv3yqrsK-A7w9nw4/edit#) for more details.
+
+## 2022-08-03 add devx permissions to upgrade s2
+
+@kalanchan
+
+https://github.com/sourcegraph/infrastructure/pull/3720
+https://github.com/sourcegraph/deploy-sourcegraph-managed/pull/814
+
+todo:
+
+- add workload identity service account to be able to upgrade s2
 
 ## 2022-07-04 deploy-sourcegraph-cloud renovate scheduling
 
