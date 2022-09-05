@@ -2,6 +2,14 @@
 
 DevX support rotation log. To add an entry, just add an H2 header with ISO 8601 format. The first line should be a list of everyone involved in the entry. For ease of use and handing over issues, **this log should be in reverse chronological order**, with the most recent entry at the top.
 
+## 2022-09-05 
+
+@jhchabran Investigated in the token issues that we've seen failing the QA tests (see https://sourcegraph.slack.com/archives/C01N83PS4TU/p1662378693209219) and found out that we have been using the same token in BuildTracker. Found it out by searching in 1Password and as William was 
+careful enough to add an entry over there, the value matched the Buildtracker entry. We have created a new token, on the account specifically made for buildkite stuff instead, which should reduce the requests consumption on the original token. 
+
+@jhchabran Paired for a bit with Olaf, who had very weird issues with his local environment. (see https://sourcegraph.slack.com/archives/C07KZF47K/p1662390457598589). In the end, it was his `asdf` installation which was deactivated. Weirdly enough, no logs were indicating this, we only
+found it empirically. 
+
 ## 2022-08-24
 
 @jhchabran This morning [INC-140] happenend and as it affected DotCom, I jumped in to help. Olaf was already there and quickly identified the problem. We rolled out a fix and I expedited its deployment. It was a frontend code issue that broke the syntax highlighting.
