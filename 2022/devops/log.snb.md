@@ -54,7 +54,8 @@ After some attempts to resolve this with @diegocomas it was not solved yet, but 
 * The `gcp-devex@sourcegraph.com` group has the role `Sourcegraph Org Editor` on the project folder `Sourcegraph Cloud`:
 ![DevX GCP role](https://raw.githubusercontent.com/sourcegraph/devx-scratch/6e08c098a4b58ad4a2eac6f54e9c174c10220735/2022/devops/gcprole.png)
 * The definition of this custom role does not include `roles/compute.networkAdmin` right now and needs to be expanded:
-https://sourcegraph.com/github.com/sourcegraph/infrastructure/-/blob/gcp/org/sg-editor.tf?L2
+
+https://sourcegraph.sourcegraph.com/github.com/sourcegraph/infrastructure/-/blob/gcp/org/sg-editor.tf?L2
 
 A side note here is that it is not entirely clear if any new projects we create are automatically added to the project folder `Sourcegraph Cloud`, which is necessary for us to inherit our permissions on the new project. Based on the first Terraform runs, I do think this happens at project creation already.
 
