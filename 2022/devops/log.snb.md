@@ -5,6 +5,58 @@ To add an entry, just add an H2 header with ISO 8601 format.
 The first line should be a list of everyone involved in the entry.
 For ease of use and handing over issues, **this log should be in reverse chronological order**, with the most recent entry at the top.
 
+## 2022-09-07 Deploying a scale testing cluster on GCP, not unblocked yet
+
+@sanderginn @jhchabran @davejrt @burmudar
+
+We started with copying a lot of the configuration from [`infrastructure/cloud`](https://sourcegraph.sourcegraph.com/github.com/sourcegraph/infrastructure/-/tree/cloud), removing services that are not relevant to the use case of scale testing, and adjusting resources to more cost-appropriate levels.  
+A change compared to the source directory is making use of the `terraform-google-sourcegraph-vpc` and `terraform-google-sourcegraph-gke` [modules](https://sourcegraph.sourcegraph.com/github.com/sourcegraph/infrastructure/-/tree/modules).
+
+Running `terraform apply`, we were reminded of the fact that GCP projects are actually maintained in the [`gcp/projects`](https://sourcegraph.sourcegraph.com/github.com/sourcegraph/infrastructure/-/tree/gcp/projects) directory. After adding the new `sourcegraph-scaletesting` project in `terraform.tfvars`, we were not capable of applying the change due to a lack of permissions. Ultimately, it was applied by @filiphaftek the next day, as he has the correct permissions due to the daily operations of the Cloud team.  
+
+Applying the [PR](https://github.com/sourcegraph/infrastructure/pull/3880) with the new cluster definitions still fails, again due to lacking permissions:
+```sh
+╷
+│ Error: googleapi: Error 403: Permission denied to update connection for service 'servicenetworking.googleapis.com'.
+│ Help Token: AfeSHlKZcPWgR7VbqlocgmJ3zd_GGBzDffQtWodfGY16UsuRCgZt70OaBt2qy5di44hm4dWRrdT-8mVWuc3SnZVIapePud9scNGAG6cd0xX9A_0-
+│ Details:
+│ [
+│   {
+│     "@type": "type.googleapis.com/google.rpc.PreconditionFailure",
+│     "violations": [
+│       {
+│         "subject": "?error_code=110002\u0026service=servicenetworking.googleapis.com\u0026permission=servicenetworking.services.addPeering\u0026resource=446689196375",
+│         "type": "googleapis.com"
+│       }
+│     ]
+│   },
+│   {
+│     "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+│     "domain": "servicenetworking.googleapis.com",
+│     "metadata": {
+│       "permission": "servicenetworking.services.addPeering",
+│       "resource": "446689196375",
+│       "service": "servicenetworking.googleapis.com"
+│     },
+│     "reason": "AUTH_PERMISSION_DENIED"
+│   }
+│ ]
+│ , forbidden
+│ 
+│   with google_service_networking_connection.private_vpc_connection,
+│   on sql.tf line 22, in resource "google_service_networking_connection" "private_vpc_connection":
+│   22: resource "google_service_networking_connection" "private_vpc_connection" {
+```
+
+After some attempts to resolve this with @diegocomas it was not solved yet, but I did find the root cause:
+
+* To correctly [configure a private vpc connection](https://cloud.google.com/vpc/docs/configure-private-services-access#permissions) the role `roles/compute.networkAdmin` is required.
+* The `gcp-devex@sourcegraph.com` group has the role `Sourcegraph Org Editor` on the project folder `Sourcegraph Cloud`:
+![DevX GCP role](gcprole.png)
+* The [definition of this custom role](https://sourcegraph.sourcegraph.com/github.com/sourcegraph/infrastructure/-/blob/gcp/org/sg-editor.tf) does not include `roles/compute.networkAdmin` right now and needs to be expanded.
+
+A side note here is that it is not entirely clear if any new projects we create are automatically added to the project folder `Sourcegraph Cloud`, which is necessary for us to inherit our permissions on the new project. Based on the first Terraform runs, I do think this happens at project creation already.
+
 ## 2022-08-31 Deploying otel-collector to sourcegraph.com
 
 @bobheadxi @sanderginn @marekweb @davejrt @burmudar
