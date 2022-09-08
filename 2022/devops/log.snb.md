@@ -5,6 +5,62 @@ To add an entry, just add an H2 header with ISO 8601 format.
 The first line should be a list of everyone involved in the entry.
 For ease of use and handing over issues, **this log should be in reverse chronological order**, with the most recent entry at the top.
 
+## 2022-09-08 Deploying a scale testing cluster on GCP, part 2
+
+@sanderginn @jhchabran
+
+After @mohammadualam unblocked me on the permissions issue, we could resume creating the infrastructure. 
+
+Some gotchas:
+- The `node_locations` variable of the `terraform-google-sourcegraph-gke` module should just be set to `null` if there's no need for a multi-zonal cluster. If you use the `google_container_cluster` resource directly you would just omit this var as it is optional, but the module requires you to pass _something_ for it.
+- Cloud SQL can only use predefined VM types with shared cores (e.g. `micro`-type VMs) _or_ custom VM types with `db-custom-<cores>-<mem in mb>` syntax. Wtf.
+
+After the cluster spun up, we moved on to installing SG. We used the Helm install guide, starting with the GCP/GKE section. The configuration is checked into [deploy-sourcegraph-scaletesting](https://github.com/sourcegraph/deploy-sourcegraph-scaletesting).
+
+
+To mirror our existing setups, we installed Nginx as an ingress controlller. We simply copied the helm definition from `deploy-sourcegraph-dogfood-k8s`. To get it to install we needed to create the namespace `ingress-nginx`. This lead to a new problem: installing the Nginx helm chart tried to delete a role on the cluster, which requires permissions that we do not have by default. After being granted the role `Kubernetes Engine admin` on this project only, we could install the helm chart for the Nginx Ingress controller.  
+
+We created the namespace `scaletesting` with a plain `kubectl create ns scaletesting`.
+
+The next step was to ensure the secrets are all present on the cluster. We copied `gsm-secrets.tf` from dogfood in the infrastructure repository. When applied, these will properly import the secrets from GSM into the cluster, but they still need to be manually created in GSM. 
+The following secrets were made:
+
+- `codeintel-bucket-sa-secret`: went to https://console.cloud.google.com/apis/credentials/serviceaccountkey and created a key for the SA (json format), then added it to GSM with the expected key.
+- `kms-service-account-key`: same as above, but other projects don't capture this SA in Terraform (sigh), so first added an extra resource to create the SA to `main.tf`.
+- `minio-secrets`: added default secret/key for minio installs.
+- `sgdev-tls`: copied secret values from dogfood's GSM (they were identical to the cert data in buildkite so presume this is OK).
+
+
+To apply the secrets, the `kubernetes` provider block needed to be updated to a newer version:
+
+```terraform
+provider "kubernetes" {
+  host = "https://${module.gke.gke_master_ip}"
+
+  cluster_ca_certificate = base64decode(
+    module.gke.gke_cluster_ca_certificate,
+  )
+  token = data.google_client_config.current.access_token
+}
+```
+
+After applying all the secrets, we copied the `values.yaml` for Sourcegraph's helm chart from `deploy-sourcegraph-dogfood-k8s` and started commenting out everything that was not applicable (yet). With a bit of fiddling here and there we got it to install (`helm upgrade --install --values ./helm/sourcegraph/override.yaml --version 3.43.1 sourcegraph sourcegraph/sourcegraph`). Only `prometheus` is stuck in `ContainerCreating` because its config does not exist and is trying to be mounted.
+
+What is left to do (minus the things that I am undoubtedly forgetting about):
+- Cloud SQL users + permissions need to be set.
+- Databases need to be created and hooked up with Cloud SQL proxy (I think?) to their respective applications. 
+- Executors are not yet enabled. If that needs to happen, there's a [repo](https://sourcegraph.sourcegraph.com/github.com/sourcegraph/terraform-google-executors) for it. The accompanying secrets need to be added in GSM, enabled in `gsm-secrets.tf`, and the volumes/volumeMounts need to be commented in (lol) again.
+- A DNS record for `scaletesting.sgdev.org` still needs to be added (I am fairly confident that `frontend` and the ingress controller are configured properly now, but it might be a good idea to look through the helm values of nginx to see if there are any references to dogfood or `k8s.sgdev.org` still. The certs are mounted in frontend at least).
+- Code hosts set up
+- Site config config'd
+- Users added
+
+This install is of `3.43.1` so does not use any of the OpenTelemetry middleware yet, just plain old jaeger goodies. I'm not sure how easy it is to install just the head of the helm repo instead of a release? Probably really easy, but today has not been a day of easy things, so who knows.
+
+Notes:
+- As suggested by @jhchabran we should come up with a mechanic that puts the cluster to sleep. 
+
+
 ## 2022-09-07 Deploying a scale testing cluster on GCP, not unblocked yet
 
 @sanderginn @jhchabran @davejrt @burmudar
