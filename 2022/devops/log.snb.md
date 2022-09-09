@@ -7,6 +7,32 @@ For ease of use and handing over issues, **this log should be in reverse chronol
 
 ## 2022-09-08 Deploying a scale testing cluster on GCP, part 2
 
+@davejrt @mucles
+
+Created a checklist [here](https://github.com/sourcegraph/sourcegraph/issues/41330#issuecomment-1241173943)
+
+@mucles got the dns sorted out
+@davejrt got the cloudsql users and passwords etc created and stored in 1password
+
+There some new commits on `sourcegraph/infrastructure@sginn/scaletesting` which include the following:
+- Created the binding for the cloud sql service account so this is now available in the scale testing project
+- Add the cloud proxy secret to the cluster via terraform
+- Add the sg user to the databases via terraform
+- Created replacement secret for the db auth as we are going to turn these off or lose them when we remove the db's from the helm config
+
+I started on adding in the cloud sql proxy to the deployment, which is on  `sourcegraph/deploy-sourcegraph-scaletesting@dt/cloudsqlproxy`. It includes the following:
+- Add in the frontend overlay to add the cloudsqlproxy container.
+- Disable the db deployments (pg and codeintel) in the overrides.
+- Add in the cloud sql proxy envvars to the migrator
+- Also added a `.tool-versions` for some of the cli-tools we need for this repo
+
+None of the changes in this repo have been deployed, as there aren't any scripts to tie all this together yet but please review and feel free to make changes as you see fit. 
+
+
+Hand off from @sanderginn
+
+
+
 @sanderginn @jhchabran
 
 After @mohammadualam unblocked me on the permissions issue, we could resume creating the infrastructure. 
