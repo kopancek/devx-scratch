@@ -3,6 +3,19 @@
 DevX teammates hacking on `cla-bot`. To add an entry, just add an H2 header starting with the ISO 8601 format, a topic.
 **This log should be in reverse chronological order.**
 
+## 2022-09-08
+
+@bobheadxi
+
+Set up alerting for clabot via a new Sentry project via `SENTRY_DSN` set in the repository secrets:
+
+- [Issues](https://sentry.io/organizations/sourcegraph/issues/?project=6732169)
+- [Alerts for #dev-experience-alerts](https://sentry.io/organizations/sourcegraph/alerts/rules/clabot/12167423/details/)
+
+The main moving part of our CLA bot setup is the `sync` tool, which I've documented here: https://github.com/sourcegraph/clabot-config/tree/main/tools
+
+General guidance of how the CLA bot works is linked to from here: https://github.com/sourcegraph/clabot-config
+
 ## 2022-06-21
 
 @bobheadxi the new `cla-bot` automation has shipped, described in https://github.com/sourcegraph/sourcegraph/pull/37395
