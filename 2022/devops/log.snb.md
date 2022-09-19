@@ -5,6 +5,12 @@ To add an entry, just add an H2 header with ISO 8601 format.
 The first line should be a list of everyone involved in the entry.
 For ease of use and handing over issues, **this log should be in reverse chronological order**, with the most recent entry at the top.
 
+## 2022-09-19
+
+@jhchabran
+
+Approved for Feroz Salam the installation of Terraform cloud in our GitHub organization (scoped to just the `sourcegraph/infrastructure` repository for now). See this [RFC](https://docs.google.com/document/d/1QYGOZEJTKfaHnu5IvxchJeOvunTxiZ3847El5zseakA/edit#heading=h.trqab8y0kufp) for the context. 
+
 ## 2022-09-08 Deploying a scale testing cluster on GCP, part 2
 
 @davejrt @mucles
