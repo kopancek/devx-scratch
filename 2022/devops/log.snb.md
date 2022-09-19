@@ -11,6 +11,8 @@ For ease of use and handing over issues, **this log should be in reverse chronol
 
 Approved for Feroz Salam the installation of Terraform cloud in our GitHub organization (scoped to just the `sourcegraph/infrastructure` repository for now). See this [RFC](https://docs.google.com/document/d/1QYGOZEJTKfaHnu5IvxchJeOvunTxiZ3847El5zseakA/edit#heading=h.trqab8y0kufp) for the context. 
 
+Submitted https://github.com/sourcegraph/handbook/pull/4856 and https://github.com/sourcegraph/infrastructure/pull/3934 as zero is not a valid node count sadly. 
+
 ## 2022-09-08 Deploying a scale testing cluster on GCP, part 2
 
 @davejrt @mucles
