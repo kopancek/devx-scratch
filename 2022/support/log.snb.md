@@ -2,6 +2,12 @@
 
 DevX support rotation log. To add an entry, just add an H2 header with ISO 8601 format. The first line should be a list of everyone involved in the entry. For ease of use and handing over issues, **this log should be in reverse chronological order**, with the most recent entry at the top.
 
+## 2022-09-21 
+
+@jhchabran Reverted 3 PRs in a row that were blocking the main branch, see https://sourcegraph.slack.com/archives/C02FLQDD3TQ/p1663752104836109. 
+
+Quickly investigated https://github.com/sourcegraph/sourcegraph/issues/41838 and https://github.com/sourcegraph/sourcegraph/issues/39687. Ruled those out as low-prio, as they're not blocking execution. Both bug reports are ambiguous about this, so I had to asked them, just in case.
+
 ## 2022-09-05 
 
 @jhchabran Investigated in the token issues that we've seen failing the QA tests (see https://sourcegraph.slack.com/archives/C01N83PS4TU/p1662378693209219) and found out that we have been using the same token in BuildTracker. Found it out by searching in 1Password and as William was 
