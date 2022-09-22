@@ -16,9 +16,10 @@ git clone some-repo
 # create depot on peforce 
 # add at least one change in that depot
 cd some-repo 
+p4 client # and check that the depot is in your view
 git p4 sync //depot-name
 git rebase p4/master
-git p4 submit --verbose
+P4EDITOR=/usr/bin/vim +wq git p4 submit # +wq so it auto accepts each changes
 ```
 
 Log: 
