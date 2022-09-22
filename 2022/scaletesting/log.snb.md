@@ -24,4 +24,11 @@ P4EDITOR=/usr/bin/vim +wq git p4 submit # +wq so it auto accepts each changes
 
 Log: 
 - I'm trying to import a smaller repo, such as genjidb/genji. It's taking ages and it's just 2000 commits. Megarepo has 700k commits. 
+- Tried with my own vimconfig, about 100 commits, took 5m
+- Now trying in the devx cloud instance to do the same on genjidb/genji (2k commits)
+  - `gcloud compute ssh --zone "us-central1-a" "devx"  --project "davedev-sg"`
+  - `cd /sg/scaletesting` 
+  - `source p4.sh`
+  - `cd /sg/scaletesting/repos/medium` 
+
 
