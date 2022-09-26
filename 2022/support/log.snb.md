@@ -2,6 +2,12 @@
 
 DevX support rotation log. To add an entry, just add an H2 header with ISO 8601 format. The first line should be a list of everyone involved in the entry. For ease of use and handing over issues, **this log should be in reverse chronological order**, with the most recent entry at the top.
 
+## 2022-09-26
+
+@jhchabran, I swapped the GitHub QA token to use the new one, that is using an account exclusively made for that. It failed again this morning, even if on sourcegraph-bot-2. If this fails again, we'll have to move to use tokens from an OAuth app instead.
+
+Disabled a flake https://github.com/sourcegraph/sourcegraph/issues/42062
+
 ## 2022-09-21 
 
 @jhchabran Reverted 3 PRs in a row that were blocking the main branch, see https://sourcegraph.slack.com/archives/C02FLQDD3TQ/p1663752104836109. 
