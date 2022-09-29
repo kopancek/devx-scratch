@@ -5,6 +5,17 @@ DevX teammates and teammates hacking on Sourcegraph's scaletesting set of tools.
 To add an entry, just add an H2 header starting with the ISO 8601 format, a topic.
 **This log should be in reverse chronological order.**
 
+## 2022-09-29
+
+@jhchabran @burmudar
+
+- We took over Manny's PR https://github.com/sourcegraph/deploy-sourcegraph-scaletesting/pull/9 and merged it
+- The deployment failed because of a permission issue so we did https://github.com/sourcegraph/infrastructure/pull/3978 and applied the changes
+- This fixed it. But we stumbled on issues with the git-combine pods failing because the repos were not present on the mounted volume that holds the repos
+- We connected to the `src-cli` pod and created those (see https://github.com/sourcegraph/sourcegraph/tree/main/internal/cmd/git-combine) 
+- We forgot to create a `bare` repo, is that a problem? 
+- We add just two remotes and it's working.
+
 ## 2022-09-22 
 
 @jhchabran @burmudar @davejrt Having fun with perforce. 
