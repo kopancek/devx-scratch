@@ -2,6 +2,10 @@
 
 DevX support rotation log. To add an entry, just add an H2 header with ISO 8601 format. The first line should be a list of everyone involved in the entry. For ease of use and handing over issues, **this log should be in reverse chronological order**, with the most recent entry at the top.
 
+## 2022-10-05 
+
+@jhchabran and @sanderginn, GitHub outage affecting webhooks, leading to builds not triggering on Buildkite. Resolved by re-creating the webhook manually. Also added a new playbook entry https://github.com/sourcegraph/handbook/pull/5148
+
 ## 2022-09-26
 
 @jhchabran, I swapped the GitHub QA token to use the new one, that is using an account exclusively made for that. It failed again this morning, even if on sourcegraph-bot-2. If this fails again, we'll have to move to use tokens from an OAuth app instead.
