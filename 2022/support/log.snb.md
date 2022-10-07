@@ -2,7 +2,54 @@
 
 DevX support rotation log. To add an entry, just add an H2 header with ISO 8601 format. The first line should be a list of everyone involved in the entry. For ease of use and handing over issues, **this log should be in reverse chronological order**, with the most recent entry at the top.
 
-## 2022-10-05 
+## 2022-10-07
+
+@burmudar the `sg_setup` action was failing on Github. Specifically the ubuntu test was failing. After fighting with bash and trying to see why it was happening, it came down to the `.bashrc` bundled with ubuntu has a piece of bash that stops the `.bashrc` execution if bash is not running in an interactive mode. So I went and made sure that when `sg` invokes a script and the shell is Bash that it adds the `-i` flag. My local and remote testing verified that this was indeed the [fix](https://github.com/sourcegraph/sourcegraph/pull/42689), but @mrnugget pointed me to an earlier [PR](https://github.com/sourcegraph/sourcegraph/pull/42031) by @sqs which basically does the inverse of what I did.
+
+The reason @sqs did this was because on PopOS it just wasn't working and `sg setup` was being backgrounded the whole time. I've been bitten by this bug/behaviour previously before I had my Mac so I decided to dig in and try to figure out why this was happening and what was the cause. I pulled a PopOS container and Ubuntu container and set them up so that I could test the setup behaviour in each one which lead to the following "debunking" of assumptions
+
+#### Assumption 1 - it is bash
+
+The output `[1]+ Stopped go run ./dev/sg setup` it the same output one gets when background a script in bash when you do CTRL+Z. So naturally, this is some bashism right? I tried getting bash to output WHAT it is doing. Telling sg to invoke it with -v, -x, --debug to see what bash command leads to the backgrounding.
+
+To my surprise, this doesn't change a thing. Nothing. You get the same output.
+
+#### Assumption 2 - something with how we're executing stuff in sg
+
+I thought that maybe there is something weird `sourcegraph/run` does with the way it's executing things. I wrote a small `main.go` that executes `source /root/.bashrc || true; env` using the Run and Bash methods and executed it within the PopOs container, and it worked like a charm. No issue at all.
+
+#### Assumption 3 - This must happen in another shell to like zsh
+
+If it happens on bash in PopOs, does it happen in zsh? Short answer, yes it does
+
+```
+zsh: suspended (tty input)  go run ./dev/sg setup
+```
+
+But this gives as at least a hint as to what is happening. What is this suspended (tty input)? This [stackoverflow](https://stackoverflow.com/questions/24056102/why-do-i-get-suspended-tty-output-in-one-terminal-but-not-in-others) post says that it could be due to a TTY setting and recommends running stty -nostop, which I did, but it didn't help much.
+
+Digging further into this tty setting and what suspended (tty input) does. @marekweb came across the `SIGTTIN` [signal](https://www.gnu.org/software/libc/manual/html_node/Job-Control-Signals.html). To see whether it was something concrete we added to the `checks.Runner` that we should be notified of a `SIGTTIN` signal with:
+
+```
+sigs := make(os.Signal, 1)
+
+signal.Notify(sigs, syscal.SIGTTIN)
+
+go func() {
+     sig := <- sigs
+     fmt.Println("WE GOT A SIGTTIN SIGNAL")
+}()
+```
+
+Running `sg` with the above code lead to at least `sg` not being backgrounded anymore, but we also didn't get our fmt message.
+
+#### Assumption 4 - something we outputting is causing this
+
+It was suspicous that we get all the other sg output, but as soon as the checks start running it gets backgrounded. When we made all the category checks empty, the behaviour stopped - nothing was getting backgrounded. So something being outputted causes the TTY to background the job
+
+Maybe this helps someone else investigating this but with the above behaviour I really think its something with the TTY configuration + syscalls.
+
+## 2022-10-05
 
 @jhchabran and @sanderginn, GitHub outage affecting webhooks, leading to builds not triggering on Buildkite. Resolved by re-creating the webhook manually. Also added a new playbook entry https://github.com/sourcegraph/handbook/pull/5148
 
@@ -12,27 +59,27 @@ DevX support rotation log. To add an entry, just add an H2 header with ISO 8601 
 
 Disabled a flake https://github.com/sourcegraph/sourcegraph/issues/42062
 
-## 2022-09-21 
+## 2022-09-21
 
-@jhchabran Reverted 3 PRs in a row that were blocking the main branch, see https://sourcegraph.slack.com/archives/C02FLQDD3TQ/p1663752104836109. 
+@jhchabran Reverted 3 PRs in a row that were blocking the main branch, see https://sourcegraph.slack.com/archives/C02FLQDD3TQ/p1663752104836109.
 
 Quickly investigated https://github.com/sourcegraph/sourcegraph/issues/41838 and https://github.com/sourcegraph/sourcegraph/issues/39687. Ruled those out as low-prio, as they're not blocking execution. Both bug reports are ambiguous about this, so I had to asked them, just in case.
 
-## 2022-09-05 
+## 2022-09-05
 
-@jhchabran Investigated in the token issues that we've seen failing the QA tests (see https://sourcegraph.slack.com/archives/C01N83PS4TU/p1662378693209219) and found out that we have been using the same token in BuildTracker. Found it out by searching in 1Password and as William was 
-careful enough to add an entry over there, the value matched the Buildtracker entry. We have created a new token, on the account specifically made for buildkite stuff instead, which should reduce the requests consumption on the original token. 
+@jhchabran Investigated in the token issues that we've seen failing the QA tests (see https://sourcegraph.slack.com/archives/C01N83PS4TU/p1662378693209219) and found out that we have been using the same token in BuildTracker. Found it out by searching in 1Password and as William was
+careful enough to add an entry over there, the value matched the Buildtracker entry. We have created a new token, on the account specifically made for buildkite stuff instead, which should reduce the requests consumption on the original token.
 
 @jhchabran Paired for a bit with Olaf, who had very weird issues with his local environment. (see https://sourcegraph.slack.com/archives/C07KZF47K/p1662390457598589). In the end, it was his `asdf` installation which was deactivated. Weirdly enough, no logs were indicating this, we only
-found it empirically. 
+found it empirically.
 
 ## 2022-08-24
 
 @jhchabran This morning [INC-140] happenend and as it affected DotCom, I jumped in to help. Olaf was already there and quickly identified the problem. We rolled out a fix and I expedited its deployment. It was a frontend code issue that broke the syntax highlighting.
 
-Olaf didn't know about `sg ci build`, so we showed it to him. Strangely though, adding his token through `sg` didn't work, so we need to double check that it's working. 
+Olaf didn't know about `sg ci build`, so we showed it to him. Strangely though, adding his token through `sg` didn't work, so we need to double check that it's working.
 
-## 2022-07-13 
+## 2022-07-13
 
 @jhchabran I've added two new how-tos, covering how to deal with custom step notifications and soft failures: https://github.com/sourcegraph/sourcegraph/pull/38718
 
@@ -40,7 +87,7 @@ Olaf didn't know about `sg ci build`, so we showed it to him. Strangely though, 
 
 @jhchabran Guess how happy I was this morning to see that we went back to 13 agents and they were all stuck haha!
 
-Two things happened. I forgot to merge the fixing PR last evening when I came back in the evening. And the other one is that apparently, and I have no idea why, but this was missing from the ROX pvc manifest: 
+Two things happened. I forgot to merge the fixing PR last evening when I came back in the evening. And the other one is that apparently, and I have no idea why, but this was missing from the ROX pvc manifest:
 
 ```
 M buildkite/buildkite-git-references/PersistentVolumeROX.template.yaml
@@ -58,7 +105,7 @@ Once this has been applied, agents started working again, being able to concurre
 
 ## 2022-07-05
 
-@jhchabran Valery reported that some agents are not firing up, leading to build being stuck. A quick check showed that only 31 agents are available. 
+@jhchabran Valery reported that some agents are not firing up, leading to build being stuck. A quick check showed that only 31 agents are available.
 
 Many agents are stuck in "container creating" or "pending" state, for about 3h with the following log message:
 
@@ -67,7 +114,7 @@ stream logs failed container "dind" in pod "buildkite-agent-stateless-3d11562a88
 ```
 
 ```
-Normal   NotTriggerScaleUp  3m12s                cluster-autoscaler  pod didn't trigger scale-up: 6 node(s) had volume node affinity conflict, 2 in backoff after failed scale-up 
+Normal   NotTriggerScaleUp  3m12s                cluster-autoscaler  pod didn't trigger scale-up: 6 node(s) had volume node affinity conflict, 2 in backoff after failed scale-up
 
 Warning  FailedScheduling   64s (x9 over 3m25s)  default-scheduler   0/133 nodes are available: 1 node(s) had taint {node.kubernetes.io/disk-pressure: }, that the pod didn't tolerate, 130 Insufficient cpu, 2 Insufficient memory, 2 node(s) had volume node affinity conflict.
 
@@ -80,13 +127,13 @@ After investigating further with Sanders, we noticed that a GKE updated was auto
 Node scale up in zones us-central1-c associated with this pod failed: GCE quota exceeded. Pod is at risk of not being scheduled
 ```
 
-After killing all jobs to release the resources, we scaled down the total agent count, because the current size for the agent base disks times 250 is greater than the allocated quota. 
+After killing all jobs to release the resources, we scaled down the total agent count, because the current size for the agent base disks times 250 is greater than the allocated quota.
 
-Still, we a big problem remained, even though we were able to get agent scheduled, they were still stuck as they were failing to mount the `buildkite-git-references` volume. 
+Still, we a big problem remained, even though we were able to get agent scheduled, they were still stuck as they were failing to mount the `buildkite-git-references` volume.
 
-We tried creating a new one manually, which didn't fix the problem. After digging further, noticing that only a single agent at a time could mount the volume, whereas it's expected that it can be mounted by many, we started investigating how the upgrade could have affected this. 
+We tried creating a new one manually, which didn't fix the problem. After digging further, noticing that only a single agent at a time could mount the volume, whereas it's expected that it can be mounted by many, we started investigating how the upgrade could have affected this.
 
-The `buildkite-git-references` volumes have two access modes, `RWO` and `ROX`. The former, being used by the populating job and the latter by the agents themselves. Digging in [the docs showed us](https://cloud.google.com/kubernetes-engine/docs/how-to/persistent-volumes/readonlymany-disks#volume-snapshot) that this not how it's supposed to be done. 
+The `buildkite-git-references` volumes have two access modes, `RWO` and `ROX`. The former, being used by the populating job and the latter by the agents themselves. Digging in [the docs showed us](https://cloud.google.com/kubernetes-engine/docs/how-to/persistent-volumes/readonlymany-disks#volume-snapshot) that this not how it's supposed to be done.
 
 Following the above guide didn't work, as we kept getting `multiattach` errors on containers creation. We wrongly assumed that the [persistent disk CSI driver](https://cloud.google.com/kubernetes-engine/docs/how-to/persistent-volumes/gce-pd-csi-driver) was [already enabled as our TF indicates](https://sourcegraph.com/github.com/sourcegraph/infrastructure/-/blob/buildkite/gke.tf?L38), which wasn't the case.
 
@@ -100,29 +147,29 @@ In retrospective, the next time we see a k8s update, we should instantly TF appl
 
 A [test opsgenie alert](https://opsg.in/a/i/sourcegraph/3c603aeb-a223-4b41-a4a4-94d7467dba7d-1656692903240) was sent (don't know from where it comes from). OpsGenie integration was sent over #dev-experience which is kinda noisy and not the right place. I moved it to #dev-experience-internal instead.
 
-## 2022-06-30 
+## 2022-06-30
 
-@jhchabran 
+@jhchabran
 
-The decision with Nate has been taken, it-tech-ops will deal with GitHub membership requests for the time being, but will stay out of the Github-owners handle. 
+The decision with Nate has been taken, it-tech-ops will deal with GitHub membership requests for the time being, but will stay out of the Github-owners handle.
 
-## 2022-06-23 
+## 2022-06-23
 
 @jhchabran Wired Dogfood with its Sentry project, as asked by Camden. I capped the projet to 30 errors per hour to avoid blowing away the quotas.
 
-## 2022-06-22 
+## 2022-06-22
 
 @jhchabran
 
 Valery reported that there is some CI infra issue with `Gulp`. Investigated and filed https://github.com/sourcegraph/sourcegraph/issues/37548 which should be a really quick fix. Ping the relevant teams and individuals, so they can fix it on their own.
 
---- 
+---
 
-The `Directory renamed before its status could be extracted` is [back again](https://buildkite.com/sourcegraph/sourcegraph/builds/155788#018187cb-9d4e-4a86-8785-50ff844a05e4/153-157). A Grafana search in the logs with the query `{app="buildkite"} |= "Directory renamed before its status could be extracted"` shows that it started happening again yesterday, but hasn't happened yet today. 
+The `Directory renamed before its status could be extracted` is [back again](https://buildkite.com/sourcegraph/sourcegraph/builds/155788#018187cb-9d4e-4a86-8785-50ff844a05e4/153-157). A Grafana search in the logs with the query `{app="buildkite"} |= "Directory renamed before its status could be extracted"` shows that it started happening again yesterday, but hasn't happened yet today.
 
 ```sourcegraph
 context:@sourcegraph/all repo:^github\.com/sourcegraph/sourcegraph$ file:^enterprise/dev/ci/internal/buildkite/cache\.go cachePluginName  patternType:literal
-``` 
+```
 
 Shows that we're still using the fork with `bsdtar`, so again, no explanation yet about why happened.
 
@@ -135,7 +182,7 @@ Shows that we're still using the fork with `bsdtar`, so again, no explanation ye
 download failed: s3://sourcegraph_buildkite_cache/sourcegraph/sourcegraph/cache-node_modules-3f21cee23df6eba8d19bc1da7c6176d16f8a859e.tar to ./cache-node_modules-3f21cee23df6eba8d19bc1da7c6176d16f8a859e.tar An error occurred (InvalidRange) when calling the GetObject operation: The requested range cannot be satisfied.
 ```
 
-Quick Google search showed that `InvalidRange` is an API error on GCP end.  As for the `MODULE_NOT_FOUND`, no idea so far what caused it. But its proximity with the api errors makes it quite suspect. 
+Quick Google search showed that `InvalidRange` is an API error on GCP end.  As for the `MODULE_NOT_FOUND`, no idea so far what caused it. But its proximity with the api errors makes it quite suspect.
 
 As it only happened [3 times, and only today](https://bit.ly/3NkjR8Y) let's just keep monitoring this for now.
 
@@ -212,11 +259,11 @@ Possible next steps:
 
 ```sh
 docker run -it --name alpine-sdk alpine:3.12.12
-apk add alpine-sdk 
-adduser tech 
+apk add alpine-sdk
+adduser tech
 addgroup tech wheel
 addgroup tech abuild
-su tech 
+su tech
 git clone https://gitlab.alpinelinux.org/alpine/aports
 abuild-keygen -a -i
 cd aports/main/postgresql
@@ -224,12 +271,12 @@ cd aports/main/postgresql
 abuild checksum
 make
 abuild -r
-# tarballed ~/packages 
+# tarballed ~/packages
 ```
 
 ```sh
 docker run -it --name alpine-test-the-build alpine:3.12.12
-# get the tarball under ~ 
+# get the tarball under ~
 apk add --allow-untrusted --repository ~/packages/main/ postgresql=12.11-r0
 # ... started the pg server and made sure it's running the right version
 ```
@@ -313,13 +360,13 @@ More discussion, thought not too much new information from the above at time of 
 
 ## 2022-06-13
 
-@jhchabran We saw a [strange failure](https://buildkite.com/sourcegraph/sourcegraph/builds/154191#01815d66-41f0-46a8-9ebf-10e4806cba3a/114-142}) while building Docker images: 
+@jhchabran We saw a [strange failure](https://buildkite.com/sourcegraph/sourcegraph/builds/154191#01815d66-41f0-46a8-9ebf-10e4806cba3a/114-142}) while building Docker images:
 
 ```
 failed to solve with frontend dockerfile.v0: failed to create LLB definition: failed to do request: Head https://private-docker-registry:5000/v2/library/postgres/manifests/sha256:b815f145ef6311e24e4bc4d165dad61b2d8e4587c96cea2944297419c5c93054?ns=docker.io: http: server gave HTTP response to HTTPS client
 ```
 
-It caused buildchecker to kick in and lock the `main` branch. Restarting the `private-docker-registry` fixed the problem. 
+It caused buildchecker to kick in and lock the `main` branch. Restarting the `private-docker-registry` fixed the problem.
 
 ## 2022-06-09
 
@@ -338,17 +385,17 @@ I'm very impressed this hasn't caused issues in the past, e.g. by being caught b
 
 ## 2022-06-08
 
-@jhchabran and @william The executors image, was failing consistently with various errors, with no direct changes on its code, and was still working yesterday. Those were caused by an outage on Launchpad which broke adding gitcore ppa. After a while, those errors stopped appearing, but we still saw a very obscure failure. The executor job is building images for both GCP and AWS, but the GCP one was failing while building a Docker image, with no apparent reason. A silent stop when running apt-get update. It took us a while to find out that what were seeing here was a kernel panic, which was [reported earlier this morning](https://bugs.launchpad.net/ubuntu/+source/linux-aws/+bug/1977919) on the ubuntu 20.04 LTS daily build that is being used to run the VM building the GCP image. The solution was to [pin down the image](https://github.com/sourcegraph/sourcegraph/pull/36782) to the previous image, that is known to work.  
+@jhchabran and @william The executors image, was failing consistently with various errors, with no direct changes on its code, and was still working yesterday. Those were caused by an outage on Launchpad which broke adding gitcore ppa. After a while, those errors stopped appearing, but we still saw a very obscure failure. The executor job is building images for both GCP and AWS, but the GCP one was failing while building a Docker image, with no apparent reason. A silent stop when running apt-get update. It took us a while to find out that what were seeing here was a kernel panic, which was [reported earlier this morning](https://bugs.launchpad.net/ubuntu/+source/linux-aws/+bug/1977919) on the ubuntu 20.04 LTS daily build that is being used to run the VM building the GCP image. The solution was to [pin down the image](https://github.com/sourcegraph/sourcegraph/pull/36782) to the previous image, that is known to work.
 
 It was hard to see, because the [output from the script](https://buildkite.com/sourcegraph/sourcegraph/builds/152871#0181425c-2a81-48bd-b06b-e2b61795a9a6/363-1180) was just `+ apt-get update` then `gcp: build has errors` and goodbye. It took look at the logs on the serial port to finally spot that it was a [kernel panic](https://console.cloud.google.com/compute/instancesDetail/zones/us-central1-c/instances/packer-62a078b1-78e2-2f65-3aae-62c470946e69/console?port=1&authuser=1&project=sourcegraph-ci).
 
-Along the way we found out that the executors job was run on every build where it shouldn't have been. After a bit of digging, it came up that the method used to compute if a new executor build is required or not wasn't stable anymore. William brilliantly rememebered reading about a new flag in Go's changelog recently, which led to [a fix](https://github.com/sourcegraph/sourcegraph/pull/36778). 
+Along the way we found out that the executors job was run on every build where it shouldn't have been. After a bit of digging, it came up that the method used to compute if a new executor build is required or not wasn't stable anymore. William brilliantly rememebered reading about a new flag in Go's changelog recently, which led to [a fix](https://github.com/sourcegraph/sourcegraph/pull/36778).
 
 ## 2022-06-07
 
-@jhchabran This morning, we started seeing linter errors such as https://buildkite.com/sourcegraph/sourcegraph/builds/152538#01813cb1-4def-4b96-9ad5-f7a2fcc39403. We did not manage to reproduce those errors locally, neither on our laptops or within linux VMs. Heck, even on CI, when running the linter it passed. This was the hint that we're seeing a race in between the Go generators and the docsite checker. After trying a few hacks, I simply disabled the docsite linter until we can fix the whole issue. 
+@jhchabran This morning, we started seeing linter errors such as https://buildkite.com/sourcegraph/sourcegraph/builds/152538#01813cb1-4def-4b96-9ad5-f7a2fcc39403. We did not manage to reproduce those errors locally, neither on our laptops or within linux VMs. Heck, even on CI, when running the linter it passed. This was the hint that we're seeing a race in between the Go generators and the docsite checker. After trying a few hacks, I simply disabled the docsite linter until we can fix the whole issue.
 
-## 2022-06-02 
+## 2022-06-02
 
 @jhchabran Noah stumbled on an edge case where we're trying to use `os.Rename` across different partitions which always fail. Fix in https://github.com/sourcegraph/sourcegraph/pull/36469 DURATION=10m
 
@@ -360,13 +407,13 @@ Along the way we found out that the executors job was run on every build where i
 
 @jhchabran
 
-Paired with Oleg and Jason to help them kickstart https://github.com/sourcegraph/sourcegraph/issues/30536#issuecomment-1032641034. We briefly went over how the CI pipeline works, then rapidly iterated through how to upload something in GCP, create a simple script to do so, where to insert their client bundle upload in the pipeline and more importantly how to make the feedback loop as short as possible: 
+Paired with Oleg and Jason to help them kickstart https://github.com/sourcegraph/sourcegraph/issues/30536#issuecomment-1032641034. We briefly went over how the CI pipeline works, then rapidly iterated through how to upload something in GCP, create a simple script to do so, where to insert their client bundle upload in the pipeline and more importantly how to make the feedback loop as short as possible:
 
 ```sourcegraph
 context:global repo:^github\.com/sourcegraph/sourcegraph$@b530444 file:^enterprise/dev/ci/internal/ci/pipeline\.go if c.Branch == "fpdx/upload-fe-bundle" {...} patternType:structural
 ```
 
-They're going to iterate on that and will come back to us for the reviewing the final PR. 
+They're going to iterate on that and will come back to us for the reviewing the final PR.
 
 ## 2022-05-24
 
@@ -374,7 +421,7 @@ They're going to iterate on that and will come back to us for the reviewing the 
 
 [The same exact thing happend to Joe Chen](https://sourcegraph.slack.com/archives/C01N83PS4TU/p1653375898615149), but this time we noticed very quickly that a CI ref file has not been updated and committing https://github.com/sourcegraph/sourcegraph/commit/a9b15bdc32409bbec9c5522c55d4b1f8b20c299c fixed the issue. As for why we're seeing this pattern of behaviour where `sg lint go` hangs if the `sg generate` commands results in a dirty repo, we don't know yet. What's for sure though is that the buffering of the ouptut which makes it appear only once the command has exited is really unpractical when it comes to debugging, and we need to fix this asap.  DURATION=30m .
 
-@jhchabran 
+@jhchabran
 
 [Thorsten noticed that the `main` branch is broken due to the 3.40.0 release](https://sourcegraph.slack.com/archives/C032Z79NZQC/p1653399008176829), it went unnoticed because the support handle for the team is set this week on Robert, which at this time is sleeping. After some investigation, we noticed that Alex Ostrikov merged a commit 6 hours ago that introduced a backward incompatible change, albeit a peculiar one: the database change itself is backward compatible, but not the tests, which were accounting for faulty behaviour. The fix was to [port the flake files to the new 3.40.0 version](https://github.com/sourcegraph/sourcegraph/pull/35942) and [we added along the way a word of warning about this edge case](https://github.com/sourcegraph/sourcegraph/pull/35945). DURATION=45m
 
@@ -386,9 +433,9 @@ They're going to iterate on that and will come back to us for the reviewing the 
 
 @jhchabran
 
-[Eric Fritz had trouble with a PR which added new go generate statements](https://sourcegraph.slack.com/archives/C01N83PS4TU/p1653322924295219) We paired with William on this and found out that the result are inconsistent in local, `sg generate` completes, but sometimes `sg lint go` hangs. On CI `sg lint go` consistently hangs. As it was pretty late for us, we unblocked Eric by giving him a branch with a patched version that outputted things straight to stdout. Strangely, forcing the `sg generate` code to produce output did work consistently, which hints at some buffering issue. DURATION=60m.  
+[Eric Fritz had trouble with a PR which added new go generate statements](https://sourcegraph.slack.com/archives/C01N83PS4TU/p1653322924295219) We paired with William on this and found out that the result are inconsistent in local, `sg generate` completes, but sometimes `sg lint go` hangs. On CI `sg lint go` consistently hangs. As it was pretty late for us, we unblocked Eric by giving him a branch with a patched version that outputted things straight to stdout. Strangely, forcing the `sg generate` code to produce output did work consistently, which hints at some buffering issue. DURATION=60m.
 
-## 2022-05-18 
+## 2022-05-18
 
 @jhchabran
 
@@ -398,13 +445,13 @@ They're going to iterate on that and will come back to us for the reviewing the 
 
 @jhchabran
 
-Investigated [the issue the failing back compat tests](https://sourcegraph.slack.com/archives/C01N83PS4TU/p1652311475381819?thread_ts=1652294119.054949&cid=C01N83PS4TU) and found out that there is an [where the go asdf plugin](https://github.com/kennyp/asdf-golang) reverts to Go 1.18.1 for some obscure reason. 
+Investigated [the issue the failing back compat tests](https://sourcegraph.slack.com/archives/C01N83PS4TU/p1652311475381819?thread_ts=1652294119.054949&cid=C01N83PS4TU) and found out that there is an [where the go asdf plugin](https://github.com/kennyp/asdf-golang) reverts to Go 1.18.1 for some obscure reason.
 
-I first reproduced the error on Buildkite to establish that it's not transient somehow and managed to reproduce it locally by running the back-compat/test.sh script manually with the same arguments that are present in the failing step. I had to tweak things a bit to make it work locally, notably adjusting the `find` command, disabling asdf installation part entirely to circumvent issues with some tools not being available for `arm64`. From there, after triple checking that the issue was indeed coming from the `go test` command, I started to bisect the package list to understand which one was causing the error. After a few tries, I managed to get a zero exit code by excluding the `lib/codeintel/tools` folder and finally isolated `lib/codeintel/tools/lsif-repl` to be the culprit. 
+I first reproduced the error on Buildkite to establish that it's not transient somehow and managed to reproduce it locally by running the back-compat/test.sh script manually with the same arguments that are present in the failing step. I had to tweak things a bit to make it work locally, notably adjusting the `find` command, disabling asdf installation part entirely to circumvent issues with some tools not being available for `arm64`. From there, after triple checking that the issue was indeed coming from the `go test` command, I started to bisect the package list to understand which one was causing the error. After a few tries, I managed to get a zero exit code by excluding the `lib/codeintel/tools` folder and finally isolated `lib/codeintel/tools/lsif-repl` to be the culprit.
 
 ```
 # This will show exit code 2
-./dev/ci/go-backcompat/test.sh exclude github.com/sourcegraph/sourcegraph/enterprise/internal/codeintel/stores/dbstore github.com/sourcegraph/sourcegraph/enterprise/internal/codeintel/stores/lsifstore github.com/sourcegraph/sourcegraph/enterprise/internal/insights github.com/sourcegraph/sourcegraph/internal/database github.com/sourcegraph/sourcegraph/internal/repos github.com/sourcegraph/sourcegraph/enterprise/internal/batches github.com/sourcegraph/sourcegraph/cmd/frontend github.com/sourcegraph/sourcegraph/enterprise/internal/database github.com/sourcegraph/sourcegraph/enterprise/cmd/frontend/internal/batches/resolvers 
+./dev/ci/go-backcompat/test.sh exclude github.com/sourcegraph/sourcegraph/enterprise/internal/codeintel/stores/dbstore github.com/sourcegraph/sourcegraph/enterprise/internal/codeintel/stores/lsifstore github.com/sourcegraph/sourcegraph/enterprise/internal/insights github.com/sourcegraph/sourcegraph/internal/database github.com/sourcegraph/sourcegraph/internal/repos github.com/sourcegraph/sourcegraph/enterprise/internal/batches github.com/sourcegraph/sourcegraph/cmd/frontend github.com/sourcegraph/sourcegraph/enterprise/internal/database github.com/sourcegraph/sourcegraph/enterprise/cmd/frontend/internal/batches/resolvers
 
 
 # This will show exit code 0 (noted the final excluded package)
@@ -414,9 +461,9 @@ I first reproduced the error on Buildkite to establish that it's not transient s
 git reset --hard HEAD && rm -Rf migrations && git co . && git co main-dry-run/debug-back-compat
 ```
 
-Surprisingly, this package has no test and is just a `main.go`. Running a `git blame` on the file showed that the last change there was a fix from Keegan to make it work with Go `1.18.1`. But the back compat tests are supposed to be running Go `1.17.5`. Running `go version` within the `lsif-repl` folder showed for some reason, even if the `/.tool-versions` specifies Go `1.17.5`, it's actually Go `1.18.1` that is currently running. 
+Surprisingly, this package has no test and is just a `main.go`. Running a `git blame` on the file showed that the last change there was a fix from Keegan to make it work with Go `1.18.1`. But the back compat tests are supposed to be running Go `1.17.5`. Running `go version` within the `lsif-repl` folder showed for some reason, even if the `/.tool-versions` specifies Go `1.17.5`, it's actually Go `1.18.1` that is currently running.
 
-This put me on track toward an `asdf` related issue, a few prints in `asdf` code confirmed it. There is an [issue](https://github.com/kennyp/asdf-golang/issues/79) about someone reporting a similar issue. Reading the doc showed that there is some questionable behaviour if the `legacy_version` setting is enable. Disabling it in my `~/.asdfrc` solved the issue and now Go `1.17.1` is the current version, as expected, within the `lsif-repl` folder. 
+This put me on track toward an `asdf` related issue, a few prints in `asdf` code confirmed it. There is an [issue](https://github.com/kennyp/asdf-golang/issues/79) about someone reporting a similar issue. Reading the doc showed that there is some questionable behaviour if the `legacy_version` setting is enable. Disabling it in my `~/.asdfrc` solved the issue and now Go `1.17.1` is the current version, as expected, within the `lsif-repl` folder.
 
 Ran a quickbuild over https://buildkite.com/sourcegraph/sourcegraph/builds/147181 to confirm that we can just drop the `.nvmrc` file and opened a PR with a new agent image that has that setting disabled.
 
@@ -464,46 +511,46 @@ Spent a lot of time trying to make firewall popups go away. Pursued the firewall
 
 ## 2022-04-22
 
-@jhchabran Observed two builds (here and here) failing due jobs losing their agents: 
+@jhchabran Observed two builds (here and here) failing due jobs losing their agents:
 
 ```
-Node condition FrequentContainerdRestart is now: False, reason: NoFrequentContainerdRestart 	NoFrequentContainerdRestart 	Apr 22, 2022, 5:50:28 PM 	Apr 22, 2022, 5:50:28 PM 	1 	
-Node condition FrequentDockerRestart is now: False, reason: NoFrequentDockerRestart 	NoFrequentDockerRestart 	Apr 22, 2022, 5:50:27 PM 	Apr 22, 2022, 5:50:27 PM 	1 	
-Node condition FrequentKubeletRestart is now: False, reason: NoFrequentKubeletRestart 	NoFrequentKubeletRestart 	Apr 22, 2022, 5:50:26 PM 	Apr 22, 2022, 5:50:26 PM 	1 	
-Node condition FrequentUnregisterNetDevice is now: False, reason: NoFrequentUnregisterNetDevice 	NoFrequentUnregisterNetDevice 	Apr 22, 2022, 5:50:26 PM 	Apr 22, 2022, 5:50:26 PM 	1 	
-Node gke-default-buildkite-main-ecd9ee7d-s9r6 status is now: NodeHasNoDiskPressure 	NodeHasNoDiskPressure 	Apr 22, 2022, 5:49:49 PM 	Apr 22, 2022, 5:50:19 PM 	7 	
-Node gke-default-buildkite-main-ecd9ee7d-s9r6 status is now: NodeNotReady 	NodeNotReady 	Apr 22, 2022, 5:50:19 PM 	Apr 22, 2022, 5:50:19 PM 	1 	
-Node gke-default-buildkite-main-ecd9ee7d-s9r6 status is now: NodeHasSufficientMemory 	NodeHasSufficientMemory 	Apr 22, 2022, 5:49:49 PM 	Apr 22, 2022, 5:50:19 PM 	7 	
-Node gke-default-buildkite-main-ecd9ee7d-s9r6 status is now: NodeHasSufficientPID 	NodeHasSufficientPID 	Apr 22, 2022, 5:49:49 PM 	Apr 22, 2022, 5:50:19 PM 	7 	
-Started Kubernetes kubelet. 	KubeletStart 	Apr 22, 2022, 4:55:25 PM 	Apr 22, 2022, 5:49:49 PM 	2 	
-invalid capacity 0 on image filesystem 	InvalidDiskCapacity 	Apr 22, 2022, 5:49:49 PM 	Apr 22, 2022, 5:49:49 PM 	1 	
-Updated Node Allocatable limit across pods 	NodeAllocatableEnforced 	Apr 22, 2022, 5:49:49 PM 	Apr 22, 2022, 5:49:49 PM 	1 	
-Starting kubelet. 	Starting 	Apr 22, 2022, 5:49:49 PM 	Apr 22, 2022, 5:49:49 PM 	1 	
-Starting Docker Application Container Engine... 	DockerStart 	Apr 22, 2022, 4:55:25 PM 	Apr 22, 2022, 5:49:39 PM 	4 	
-Node condition FrequentContainerdRestart is now: Unknown, reason: NoFrequentContainerdRestart 	NoFrequentContainerdRestart 	Apr 22, 2022, 5:48:25 PM 	Apr 22, 2022, 5:48:25 PM 	1 	
-Node condition FrequentDockerRestart is now: Unknown, reason: NoFrequentDockerRestart 	NoFrequentDockerRestart 	Apr 22, 2022, 5:47:25 PM 	Apr 22, 2022, 5:47:25 PM 	1 	
-Node condition FrequentKubeletRestart is now: Unknown, reason: NoFrequentKubeletRestart 	NoFrequentKubeletRestart 	Apr 22, 2022, 5:46:25 PM 	Apr 22, 2022, 5:46:25 PM 	1 	
-Node condition FrequentUnregisterNetDevice is now: Unknown, reason: NoFrequentUnregisterNetDevice 	NoFrequentUnregisterNetDevice 	Apr 22, 2022, 5:46:25 PM 	Apr 22, 2022, 5:46:25 PM 	1 	
-Node gke-default-buildkite-main-ecd9ee7d-s9r6 status is now: NodeNotReady 	NodeNotReady 	Apr 22, 2022, 5:42:59 PM 	Apr 22, 2022, 5:42:59 PM 	1 	
+Node condition FrequentContainerdRestart is now: False, reason: NoFrequentContainerdRestart 	NoFrequentContainerdRestart 	Apr 22, 2022, 5:50:28 PM 	Apr 22, 2022, 5:50:28 PM 	1
+Node condition FrequentDockerRestart is now: False, reason: NoFrequentDockerRestart 	NoFrequentDockerRestart 	Apr 22, 2022, 5:50:27 PM 	Apr 22, 2022, 5:50:27 PM 	1
+Node condition FrequentKubeletRestart is now: False, reason: NoFrequentKubeletRestart 	NoFrequentKubeletRestart 	Apr 22, 2022, 5:50:26 PM 	Apr 22, 2022, 5:50:26 PM 	1
+Node condition FrequentUnregisterNetDevice is now: False, reason: NoFrequentUnregisterNetDevice 	NoFrequentUnregisterNetDevice 	Apr 22, 2022, 5:50:26 PM 	Apr 22, 2022, 5:50:26 PM 	1
+Node gke-default-buildkite-main-ecd9ee7d-s9r6 status is now: NodeHasNoDiskPressure 	NodeHasNoDiskPressure 	Apr 22, 2022, 5:49:49 PM 	Apr 22, 2022, 5:50:19 PM 	7
+Node gke-default-buildkite-main-ecd9ee7d-s9r6 status is now: NodeNotReady 	NodeNotReady 	Apr 22, 2022, 5:50:19 PM 	Apr 22, 2022, 5:50:19 PM 	1
+Node gke-default-buildkite-main-ecd9ee7d-s9r6 status is now: NodeHasSufficientMemory 	NodeHasSufficientMemory 	Apr 22, 2022, 5:49:49 PM 	Apr 22, 2022, 5:50:19 PM 	7
+Node gke-default-buildkite-main-ecd9ee7d-s9r6 status is now: NodeHasSufficientPID 	NodeHasSufficientPID 	Apr 22, 2022, 5:49:49 PM 	Apr 22, 2022, 5:50:19 PM 	7
+Started Kubernetes kubelet. 	KubeletStart 	Apr 22, 2022, 4:55:25 PM 	Apr 22, 2022, 5:49:49 PM 	2
+invalid capacity 0 on image filesystem 	InvalidDiskCapacity 	Apr 22, 2022, 5:49:49 PM 	Apr 22, 2022, 5:49:49 PM 	1
+Updated Node Allocatable limit across pods 	NodeAllocatableEnforced 	Apr 22, 2022, 5:49:49 PM 	Apr 22, 2022, 5:49:49 PM 	1
+Starting kubelet. 	Starting 	Apr 22, 2022, 5:49:49 PM 	Apr 22, 2022, 5:49:49 PM 	1
+Starting Docker Application Container Engine... 	DockerStart 	Apr 22, 2022, 4:55:25 PM 	Apr 22, 2022, 5:49:39 PM 	4
+Node condition FrequentContainerdRestart is now: Unknown, reason: NoFrequentContainerdRestart 	NoFrequentContainerdRestart 	Apr 22, 2022, 5:48:25 PM 	Apr 22, 2022, 5:48:25 PM 	1
+Node condition FrequentDockerRestart is now: Unknown, reason: NoFrequentDockerRestart 	NoFrequentDockerRestart 	Apr 22, 2022, 5:47:25 PM 	Apr 22, 2022, 5:47:25 PM 	1
+Node condition FrequentKubeletRestart is now: Unknown, reason: NoFrequentKubeletRestart 	NoFrequentKubeletRestart 	Apr 22, 2022, 5:46:25 PM 	Apr 22, 2022, 5:46:25 PM 	1
+Node condition FrequentUnregisterNetDevice is now: Unknown, reason: NoFrequentUnregisterNetDevice 	NoFrequentUnregisterNetDevice 	Apr 22, 2022, 5:46:25 PM 	Apr 22, 2022, 5:46:25 PM 	1
+Node gke-default-buildkite-main-ecd9ee7d-s9r6 status is now: NodeNotReady 	NodeNotReady 	Apr 22, 2022, 5:42:59 PM 	Apr 22, 2022, 5:42:59 PM 	1
 ```
 
 Reading through the Buildkite docs, we can specifically address this case and force a retry: https://buildkite.com/docs/pipelines/command-step#automatic-retry-attributes, by watching for the -1 exit status: https://github.com/sourcegraph/sourcegraph/pull/34370
 
-@jhchabran Depguard has [failed again, off a fresh branch from main](https://sourcegraph.slack.com/archives/C01N83PS4TU/p1650638888337509), so I had to disable it again. 
+@jhchabran Depguard has [failed again, off a fresh branch from main](https://sourcegraph.slack.com/archives/C01N83PS4TU/p1650638888337509), so I had to disable it again.
 
-## 2022-04-19 
+## 2022-04-19
 
 @jhchabran
 
-Got asked to [help with a CD issue](https://sourcegraph.slack.com/archives/CMBA8F926/p1650372090576579), Renovate had not picked a new PR in 8h. We uncovered weird behaviour where Renovate was updating the same PR over and over, but had a failed check dating from when we removed `fd` from being installed in every agent. This had been fixed, but the PR having been opened for a month, it was still there. Closing it apparently got Renovate to open a new PR. Coincidentally, Cloudflare had issues in Germany has well, and Renovate seems to be hosted in Germany too. We have no clue on what the exact problem. $DURATION=45m 
+Got asked to [help with a CD issue](https://sourcegraph.slack.com/archives/CMBA8F926/p1650372090576579), Renovate had not picked a new PR in 8h. We uncovered weird behaviour where Renovate was updating the same PR over and over, but had a failed check dating from when we removed `fd` from being installed in every agent. This had been fixed, but the PR having been opened for a month, it was still there. Closing it apparently got Renovate to open a new PR. Coincidentally, Cloudflare had issues in Germany has well, and Renovate seems to be hosted in Germany too. We have no clue on what the exact problem. $DURATION=45m
 
 ## 2022-04-13
 
 @davejrt
 
-`Sourcegraph Cluster (deploy-sourcegraph) QA` tests failing on main with [this build](https://buildkite.com/sourcegraph/sourcegraph/builds/142212#4f3be801-87b7-4f74-baae-e68b54d3fc14/366-368). Some investigation showed [this commit](https://k8s.sgdev.org/github.com/sourcegraph/deploy-sourcegraph/-/commit/f0d13887f6a3f98bb4f518c29ce1d9afc37fc093?visible=3) broke the `low-resource` overlay. I fixed the the `low-resource` overlay with [this commit](https://k8s.sgdev.org/github.com/sourcegraph/deploy-sourcegraph/-/commit/0a8d240f889a8b0b2b0f4ee84fb63e7f21eced82?visible=3) and a [follow up commit](https://k8s.sgdev.org/github.com/sourcegraph/deploy-sourcegraph/-/commit/0a8d240f889a8b0b2b0f4ee84fb63e7f21eced82?visible=3) that adds a test to ensure that all overlays can be generated without error. 
+`Sourcegraph Cluster (deploy-sourcegraph) QA` tests failing on main with [this build](https://buildkite.com/sourcegraph/sourcegraph/builds/142212#4f3be801-87b7-4f74-baae-e68b54d3fc14/366-368). Some investigation showed [this commit](https://k8s.sgdev.org/github.com/sourcegraph/deploy-sourcegraph/-/commit/f0d13887f6a3f98bb4f518c29ce1d9afc37fc093?visible=3) broke the `low-resource` overlay. I fixed the the `low-resource` overlay with [this commit](https://k8s.sgdev.org/github.com/sourcegraph/deploy-sourcegraph/-/commit/0a8d240f889a8b0b2b0f4ee84fb63e7f21eced82?visible=3) and a [follow up commit](https://k8s.sgdev.org/github.com/sourcegraph/deploy-sourcegraph/-/commit/0a8d240f889a8b0b2b0f4ee84fb63e7f21eced82?visible=3) that adds a test to ensure that all overlays can be generated without error.
 
-## 2022-04-12 
+## 2022-04-12
 
 @jhchabran
 
