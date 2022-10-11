@@ -5,6 +5,17 @@ DevX teammates and teammates hacking on Sourcegraph's scaletesting set of tools.
 To add an entry, just add an H2 header starting with the ISO 8601 format, a topic.
 **This log should be in reverse chronological order.**
 
+# 2022-10-11
+
+@jhchabran It took me a while to finally answer Randell needs for 10k repos with write access, mostly because I got suprised by ghe-feeder. So to avoid repeating the same mistake:
+
+- ghe-feeder will silently put the repos under the user organization if it cannot create the organization you asked for.
+  - this makes it easy to mess things up, because the importing process stopped and you're trying to resume, but because the org exists, it will fail to create it. 
+  - also, because of this, you can end up with a weird situation where you're you're importing repos in a given organization but some of them will fail because they're already present under the user organization. 
+- if you want to start importing again after having deleted everything, remember to remove `feeder.database` otherwise it may skip everything that has been previously imported. 
+
+I think we should patch ghe-feeder to make it more reliable and predictable. 
+
 ## 2022-09-29
 
 @jhchabran @burmudar
