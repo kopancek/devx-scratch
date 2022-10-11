@@ -2,6 +2,14 @@
 
 DevX support rotation log. To add an entry, just add an H2 header with ISO 8601 format. The first line should be a list of everyone involved in the entry. For ease of use and handing over issues, **this log should be in reverse chronological order**, with the most recent entry at the top.
 
+## 2022-10-10
+
+@jhchabran added a bot acount for the data eng team to our org. It needs admin access to the `soucegraph/analytics` repo. See [thread](https://sourcegraph.slack.com/archives/C01CSS3TC75/p1664217790860519).
+
+Also started looking into the conn count issues mentioned by Coury over this [thread](https://sourcegraph.slack.com/archives/C032Z79NZQC/p1665434622037289). see https://github.com/sourcegraph/deploy-sourcegraph-docker/pull/865
+
+Intervened on https://sourcegraph.slack.com/archives/C02FLQDD3TQ/p1665417493235209 as the fix seems to be stuck on GitHub. Giving it a try with a smaller repo to fix that annoying flake plaguing the e2e jobs. as described in https://github.com/sourcegraph/sourcegraph/issues/42637. PR is at https://github.com/sourcegraph/sourcegraph/pull/42816
+
 ## 2022-10-07
 
 @burmudar the `sg_setup` action was failing on Github. Specifically the ubuntu test was failing. After fighting with bash and trying to see why it was happening, it came down to the `.bashrc` bundled with ubuntu has a piece of bash that stops the `.bashrc` execution if bash is not running in an interactive mode. So I went and made sure that when `sg` invokes a script and the shell is Bash that it adds the `-i` flag. My local and remote testing verified that this was indeed the [fix](https://github.com/sourcegraph/sourcegraph/pull/42689), but @mrnugget pointed me to an earlier [PR](https://github.com/sourcegraph/sourcegraph/pull/42031) by @sqs which basically does the inverse of what I did.
