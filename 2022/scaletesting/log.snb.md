@@ -20,10 +20,11 @@ To add an entry, just add an H2 header starting with the ISO 8601 format, a topi
       - identity provider?
 - GHE Feeder: Update to work with Gitlab/Bitbucket
 - Update Scaletesting to Sourcegraph 4.0
-- Poc pipeline for Scaletesting
+- ~[Poc pipeline for Scaletesting](https://github.com/sourcegraph/sourcegraph/issues/43042)~
 - Batch changes
   - Ask them what did they get from talking about this last week internally
-  - Need to review what Randell produced as an example scenario
+  - ~[Need to review what Randell produced as an example scenario](https://github.com/sourcegraph/sourcegraph/issues/43043)~
+    - @jhchabran: it's a really intersting doc, must read.
   - Need to be able to create repos across multiple code hosts
   - Check how it's going with the executors
 - Frontend scale-testing
