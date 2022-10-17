@@ -29,7 +29,7 @@ To add an entry, just add an H2 header starting with the ISO 8601 format, a topi
   - Check how it's going with the executors
 - Frontend scale-testing
   - Creating notebooks on the fly
-  - Look into the frontend metrics
+  - ~[Look into the frontend metrics](https://github.com/sourcegraph/sourcegraph/issues/42493#issuecomment-1280828981)~
   - Have QH looking to the priority of FE / vs code hosts
     - Bet scope is challenged?
 - Meet with the Code Insights team
