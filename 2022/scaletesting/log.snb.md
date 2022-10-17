@@ -19,7 +19,8 @@ To add an entry, just add an H2 header starting with the ISO 8601 format, a topi
     - declarative way of doing so?
       - identity provider?
 - GHE Feeder: Update to work with Gitlab/Bitbucket
-- Update Scaletesting to Sourcegraph 4.0
+- ~Update Scaletesting to Sourcegraph 4.0~
+  - We're already running 4.0. 
 - ~[Poc pipeline for Scaletesting](https://github.com/sourcegraph/sourcegraph/issues/43042)~
 - Batch changes
   - Ask them what did they get from talking about this last week internally
