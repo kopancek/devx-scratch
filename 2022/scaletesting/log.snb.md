@@ -16,8 +16,8 @@ To add an entry, just add an H2 header starting with the ISO 8601 format, a topi
   - ~[we need to document the new instance and what comes with it](https://github.com/sourcegraph/sourcegraph/issues/43032)~
   - ~we need to have a calendar alert about it expiration date~
   - we need to investigate how to populate stuff in there
-    - declarative way of doing so?
-      - identity provider?
+    - ~[declarative way of doing so?](https://github.com/sourcegraph/sourcegraph/issues/43045)~
+      - ~[identity provider?](https://github.com/sourcegraph/sourcegraph/issues/43044)~
 - GHE Feeder: Update to work with Gitlab/Bitbucket
 - ~Update Scaletesting to Sourcegraph 4.0~
   - We're already running 4.0. 
