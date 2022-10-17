@@ -12,7 +12,7 @@ To add an entry, just add an H2 header starting with the ISO 8601 format, a topi
 - We now have a GHE instance for 45 days with unlimited users
   - can be used for permissions testing
   - [we need to document the new instance and what comes with it](https://github.com/sourcegraph/sourcegraph/issues/43032)
-  - we need to have a calendar alert about it expiration date
+  - [x] we need to have a calendar alert about it expiration date
   - we need to investigate how to populate stuff in there
     - declarative way of doing so?
       - identity provider?
