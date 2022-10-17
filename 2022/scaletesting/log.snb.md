@@ -7,12 +7,14 @@ To add an entry, just add an H2 header starting with the ISO 8601 format, a topi
 
 # 2022-10-17
 
-@jhchabran @burmudar We sat down with William and listed all the things that we need to do based our recent exchanges on ScaleTesting:
+@jhchabran @burmudar We sat down with William and listed all the things that we need to do based our recent exchanges on ScaleTesting: 
+
+(Crossed mean a task has been created)
 
 - We now have a GHE instance for 45 days with unlimited users
   - can be used for permissions testing
-  - [we need to document the new instance and what comes with it](https://github.com/sourcegraph/sourcegraph/issues/43032)
-  - [x] we need to have a calendar alert about it expiration date
+  - ~[we need to document the new instance and what comes with it](https://github.com/sourcegraph/sourcegraph/issues/43032)~
+  - ~we need to have a calendar alert about it expiration date~
   - we need to investigate how to populate stuff in there
     - declarative way of doing so?
       - identity provider?
