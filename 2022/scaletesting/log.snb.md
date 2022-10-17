@@ -5,6 +5,30 @@ DevX teammates and teammates hacking on Sourcegraph's scaletesting set of tools.
 To add an entry, just add an H2 header starting with the ISO 8601 format, a topic.
 **This log should be in reverse chronological order.**
 
+# 2022-10-17
+
+@jhchabran @burmudar We sat down with William and listed all the things that we need to do based our recent exchanges on ScaleTesting:
+
+- We now have a GHE instance for 45 days with unlimited users
+  - can be used for permissions testing
+  - we need to document the new instance and what comes with it 
+  - we need to have a calendar alert about it expiration date
+  - we need to investigate how to populate stuff in there
+    - declarative way of doing so? 
+      - identity provider?
+- Batch changes
+  - Ask them what did they get from talking about this last week internally
+  - Need to review what Randell produced as an example scenario
+  - Need to be able to create repos across multiple code hosts
+  - Check how it's going with the executors
+- Frontend scale-testing
+  - Creating notebooks on the fly
+  - Look into the frontend metrics
+  - Have QH looking to the priority of FE / vs code hosts
+    - Bet scope is challenged? 
+- Meet with the Code Insights team
+- Meet with the Cloud Team
+
 # 2022-10-11
 
 @jhchabran It took me a while to finally answer Randell needs for 10k repos with write access, mostly because I got suprised by ghe-feeder. So to avoid repeating the same mistake:
