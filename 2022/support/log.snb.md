@@ -4,7 +4,7 @@ DevX support rotation log. To add an entry, just add an H2 header with ISO 8601 
 
 ## 2022-18-10
 
-Beatrix had asked us over a month ago to add a missing environment variable, `VSCODE_OPENVSX_TOKEN` to the CI agents. This token [is needed](https://sourcegraph.sourcegraph.com/github.com/sourcegraph/sourcegraph/-/blob/client/vscode/scripts/publish.ts?L28) in conjunction with `VSCODE_MARKETPLACE_TOKEN` (which was set already) to run the publish job in CI.    
+@sanderginn Beatrix had asked us over a month ago to add a missing environment variable, `VSCODE_OPENVSX_TOKEN` to the CI agents. This token [is needed](https://sourcegraph.sourcegraph.com/github.com/sourcegraph/sourcegraph/-/blob/client/vscode/scripts/publish.ts?L28) in conjunction with `VSCODE_MARKETPLACE_TOKEN` (which was set already) to run the publish job in CI.    
 
 ## 2022-10-10
 
