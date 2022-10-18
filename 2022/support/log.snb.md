@@ -2,6 +2,10 @@
 
 DevX support rotation log. To add an entry, just add an H2 header with ISO 8601 format. The first line should be a list of everyone involved in the entry. For ease of use and handing over issues, **this log should be in reverse chronological order**, with the most recent entry at the top.
 
+## 2022-18-10
+
+Beatrix had asked us over a month ago to add a missing environment variable, `VSCODE_OPENVSX_TOKEN` to the CI agents. This token [is needed](https://sourcegraph.sourcegraph.com/github.com/sourcegraph/sourcegraph/-/blob/client/vscode/scripts/publish.ts?L28) in conjunction with `VSCODE_MARKETPLACE_TOKEN` (which was set already) to run the publish job in CI.    
+
 ## 2022-10-10
 
 @jhchabran added a bot acount for the data eng team to our org. It needs admin access to the `soucegraph/analytics` repo. See [thread](https://sourcegraph.slack.com/archives/C01CSS3TC75/p1664217790860519).
