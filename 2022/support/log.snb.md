@@ -2,6 +2,10 @@
 
 DevX support rotation log. To add an entry, just add an H2 header with ISO 8601 format. The first line should be a list of everyone involved in the entry. For ease of use and handing over issues, **this log should be in reverse chronological order**, with the most recent entry at the top.
 
+## 2022-10-21
+
+@jhchabran @burmudar See https://github.com/sourcegraph/sourcegraph/issues/43282 
+
 ## 2022-10-19
 
 @jhchabran @burmudar: Due to https://sourcegraph.slack.com/archives/C02FLQDD3TQ/p1666186593157969 we looked for recent CI changes. We ruled out the request changes, but the cronjob could be a match. We reverted it in https://github.com/sourcegraph/infrastructure/pull/4097 after observing that it passed on `main` when manually applied. 
