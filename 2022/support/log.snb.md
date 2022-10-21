@@ -3,6 +3,7 @@
 DevX support rotation log. To add an entry, just add an H2 header with ISO 8601 format. The first line should be a list of everyone involved in the entry. For ease of use and handing over issues, **this log should be in reverse chronological order**, with the most recent entry at the top.
 
 ## 2022-10-21 (occurred 2022-10-19)
+@sanderginn
 
 DevX was flagged that S2 had not been deployed to for 6 days. What turned out to be the root cause is that the [IAM bindings on the service account](https://sourcegraph.sourcegraph.com/github.com/sourcegraph/infrastructure/-/blob/gcp/org/managed_instance_folder_iam_bindings.tf?L68-76) that is in use by GitHub Actions (where CD takes place) are [frequently undone by a non-Terraform change](https://sourcegraph.slack.com/archives/C1JH2BEHZ/p1666205521693909?thread_ts=1666202912.133939&cid=C1JH2BEHZ). This causes the SA to lose the permission `compute.instances.list`, which is needed to get details on the current deployment context of the managed instance.
 
