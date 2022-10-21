@@ -5,7 +5,17 @@ DevX teammates and teammates hacking on Sourcegraph's scaletesting set of tools.
 To add an entry, just add an H2 header starting with the ISO 8601 format, a topic.
 **This log should be in reverse chronological order.**
 
-# 2022-10-17
+## 2022-10-21
+
+@jhchabran, about generating 200k blank repos: the 200k blank (one commit with a README.md) repos creating is progressing at 26 repos / minute.  All repos on GH have been created, it's just the push part that takes time.
+
+This is slow. It should take another 4 days to complete the remaining 170k blank repos.
+
+With regard to the timeline to provide test-data, it's better than nothing. But I suspect this is only going to become a bigger problem in the future, especially when we're trying to reproduce a customer issue (which is the case here).
+
+Actually, I should ask a GitHub solution architect about this.
+
+## 2022-10-17
 
 @jhchabran @burmudar We sat down with William and listed all the things that we need to do based our recent exchanges on ScaleTesting: 
 
@@ -36,7 +46,7 @@ To add an entry, just add an H2 header starting with the ISO 8601 format, a topi
 - Meet with the Code Insights team
 - Meet with the Cloud Team
 
-# 2022-10-11
+## 2022-10-11
 
 @jhchabran It took me a while to finally answer Randell needs for 10k repos with write access, mostly because I got suprised by ghe-feeder. So to avoid repeating the same mistake:
 
