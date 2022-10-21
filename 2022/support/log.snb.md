@@ -26,7 +26,9 @@ The output below finally revealed what was going wrong.
 
 Security applied the Terraform config granting the appropriate permissions to the SA, after which CD resumed.  
 
-Action item: [monitor for CD failures](https://github.com/orgs/sourcegraph/projects/212/views/47).
+Action items: 
+* [monitor for CD failures](https://github.com/orgs/sourcegraph/projects/212/views/47).
+* Investigate Run swallowing errored cmd
 
 Question: is there a better way (less stone-agey approach) to debug Actions?
 
