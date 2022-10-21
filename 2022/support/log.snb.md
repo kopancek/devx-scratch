@@ -2,6 +2,34 @@
 
 DevX support rotation log. To add an entry, just add an H2 header with ISO 8601 format. The first line should be a list of everyone involved in the entry. For ease of use and handing over issues, **this log should be in reverse chronological order**, with the most recent entry at the top.
 
+## 2022-10-21 (occurred 2022-10-19)
+
+DevX was flagged that S2 had not been deployed to for 6 days. What turned out to be the root cause is that the [IAM bindings on the service account](https://sourcegraph.sourcegraph.com/github.com/sourcegraph/infrastructure/-/blob/gcp/org/managed_instance_folder_iam_bindings.tf?L68-76) that is in use by GitHub Actions (where CD takes place) are [frequently undone by a non-Terraform change](https://sourcegraph.slack.com/archives/C1JH2BEHZ/p1666205521693909?thread_ts=1666202912.133939&cid=C1JH2BEHZ). This causes the SA to lose the permission `compute.instances.list`, which is needed to get details on the current deployment context of the managed instance.
+
+What made this particularly difficult to debug is that the missing permission error thrown by `gcloud` was not caught as an error by the `run.Cmd().Run()` [execution](https://sourcegraph.sourcegraph.com/github.com/sourcegraph/deploy-sourcegraph-managed@main/-/blob/util/pkg/config/config.go?L206-209&subtree=true). The function `fetchDeployment` in turn [does not return an error](https://sourcegraph.sourcegraph.com/github.com/sourcegraph/deploy-sourcegraph-managed@main/-/blob/util/pkg/config/config.go?L232&subtree=true) when there are no instances found matching the filter on line 215.  
+The end result is that an empty string is returned by `fetchDeployment`, which causes `ActiveDeploymentRoot` to [return an empty string too](https://sourcegraph.sourcegraph.com/github.com/sourcegraph/deploy-sourcegraph-managed@main/-/blob/util/pkg/fs/fs.go?L54-61), and ultimately leading to `ValidDockerComposeFile` to return an error when trying to [get the file status of `docker-compose`](https://sourcegraph.sourcegraph.com/github.com/sourcegraph/deploy-sourcegraph-managed@main/-/blob/util/pkg/fs/fs.go?L114), as it is not prefixed with the directory of the instance being upgraded (something like `deploy-sourcegraph-managed/sg/red`).
+
+The difficulty of debugging is compounded by the fact that GitHub Actions are just a PITA to test. I finally just resorted to hacking the bits of code in `mi` to log/print to stdout, pushing the changes to `create-pull-request/patch` branch that was not being merged (due to the action failing). This branch is fine to throw away and is checked out by the failing job, making things a bit quicker to investigate.  
+The output below finally revealed what was going wrong.
+
+```shell
+2022-10-19T17:08:09.9758683Z upgrading sg to 178685
+2022-10-19T17:08:10.0074999Z 👉 [1mUsing target "latest"[0m
+2022-10-19T17:08:10.0076187Z 👉 [1mNo deployment found in cache, fetching[0m
+2022-10-19T17:08:34.8790876Z 👉 [1mDeployment fetch result: [ERROR: (gcloud.compute.instances.list) Some requests did not succeed:  - Required 'compute.instances.list' permission for 'projects/sourcegraph-managed-sg' ][0m
+2022-10-19T17:08:34.8791699Z 👉 [1mNo deployment found in cache, fetching[0m
+2022-10-19T17:08:56.9425191Z 👉 [1mDeployment fetch result: [ERROR: (gcloud.compute.instances.list) Some requests did not succeed:  - Required 'compute.instances.list' permission for 'projects/sourcegraph-managed-sg' ][0m
+2022-10-19T17:08:56.9437823Z 2022-10-19T17:08:56.942Z	INFO	mi/mg_upgrade.go:79	Active deployment root	{"target": "latest", "customer": "sg", "root": "", "currentDeployment": "", "customer": "sg"}
+2022-10-19T17:08:56.9438630Z golden file is invalid: stat docker-compose: no such file or directory
+2022-10-19T17:08:56.9443682Z ##[error]Process completed with exit code 1.
+```
+
+Security applied the Terraform config granting the appropriate permissions to the SA, after which CD resumed.  
+
+Action item: [monitor for CD failures](https://github.com/orgs/sourcegraph/projects/212/views/47).
+
+Question: is there a better way (less stone-agey approach) to debug Actions?
+
 ## 2022-10-21
 
 @jhchabran @burmudar See https://github.com/sourcegraph/sourcegraph/issues/43282 
