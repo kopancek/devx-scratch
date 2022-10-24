@@ -2,6 +2,21 @@
 
 DevX support rotation log. To add an entry, just add an H2 header with ISO 8601 format. The first line should be a list of everyone involved in the entry. For ease of use and handing over issues, **this log should be in reverse chronological order**, with the most recent entry at the top.
 
+## 2022-10-24 
+
+@jhchabran / @burmudar  quick recap about the bets and cooldown:
+
+- Wrap up the bet and share the result
+- Get stuff ready for the batch changes team
+  - 200k repos 
+    - need to make them private 
+  - codehostcopy
+- Extract the repo thing into its own package for resuming
+- Boot up things with permissions on GHE 
+- Create the new bet for scale testing
+- Take some time to make sure https://github.com/sourcegraph/sourcegraph/issues/42140 works.
+
+
 ## 2022-10-21 (occurred 2022-10-19)
 @sanderginn
 
