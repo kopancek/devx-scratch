@@ -5,6 +5,16 @@ DevX teammates and teammates hacking on Sourcegraph's scaletesting set of tools.
 To add an entry, just add an H2 header starting with the ISO 8601 format, a topic.
 **This log should be in reverse chronological order.**
 
+## 2022-10-26
+
+@burmudar so I got access to the EKS cluster on AWS to transfer some Bitbucket repos out. Accessing the cluster rightfully so, isn't exactly straight forward. For any changes that require access to the kube API you first need to add **your** ip to the allowed ip's in the advanced networking panel. Now that you've got kube API access all is good right ? WRONG.
+
+You can change the cluster. Add services, expose some endpoints, add pods, remove pods but the IP you added earlier is **only** for kube API access. Ok, so knowing this, let's ask Google "How do I expose a Pod on EKS". All I'm really looking for is just some guidance on setting up a quick and dirty thing. Something slightly higher than `kubectl port-forward`. Instead, all the resources are about adding a Cloud Load Balancer, adding ingress rules, ingress classes and I was really not to keen on doing any of that since it is aimed at really running a service. I had some vague recollection about NodePorts, and eventually I came across the command `kubectl expose` which allows you to quickly create a service and expose some pod.
+
+With my new found knowledge of `kubectl expose` I started exposing services targeting the bitbucket pod and eventually settled on the following command `kubectl expose pod bitbucket-0 --port=7990 --target-port=7990 --name bitbucket-svc --type NodePort --external-ip=<my external ip>`. This created a service which exposed a NodePort on the node of the `bitbucket` pod was running on. With the service created I fired up my trusty curl to `<external ip>:7990` ... and get a timeout. Looking closely at the service output, I saw that the ports that are mapped are a bit different to how I specified them on the cli `7990:30186/TCP`. Reading as to why this happens and it seems EKS has some restriction to only expose NodePorts in the 30000 range. Moving on ... I fired up curl again with the new port ... and we got a nice fat timeout again. I'm pretty sure the kubernetes config is correct (to my laymans brain).
+
+So I went digging, and eventually I struck gold, by looking at the security allow list of the VPC that is used in AWS for the cluster. I saw Idra had a rule to allow postgres, so I added a rule to allow inbound traffic on port `30186`. Once the rule got assigned and I fired off a curl ... SUCCESS! I got the bitbucket dashboard response.
+
 ## 2022-10-21
 
 @jhchabran, about generating 200k blank repos: the 200k blank (one commit with a README.md) repos creating is progressing at 26 repos / minute.  All repos on GH have been created, it's just the push part that takes time.
@@ -17,7 +27,7 @@ Actually, I should ask a GitHub solution architect about this.
 
 ## 2022-10-17
 
-@jhchabran @burmudar We sat down with William and listed all the things that we need to do based our recent exchanges on ScaleTesting: 
+@jhchabran @burmudar We sat down with William and listed all the things that we need to do based our recent exchanges on ScaleTesting:
 
 (Crossed mean a task has been created)
 
@@ -30,7 +40,7 @@ Actually, I should ask a GitHub solution architect about this.
       - ~[identity provider?](https://github.com/sourcegraph/sourcegraph/issues/43044)~
 - GHE Feeder: Update to work with Gitlab/Bitbucket
 - ~Update Scaletesting to Sourcegraph 4.0~
-  - We're already running 4.0. 
+  - We're already running 4.0.
 - ~[Poc pipeline for Scaletesting](https://github.com/sourcegraph/sourcegraph/issues/43042)~
 - Batch changes
   - Ask them what did they get from talking about this last week internally
