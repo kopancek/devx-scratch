@@ -5,6 +5,41 @@ DevX teammates and teammates hacking on Sourcegraph's scaletesting set of tools.
 To add an entry, just add an H2 header starting with the ISO 8601 format, a topic.
 **This log should be in reverse chronological order.**
 
+## 2022-11-04
+
+@davejrt the self-signed TLS certificiate for [ghe-scalingesting.sgdev.org](https://ghe-scaletesting.sgdev.org) was blocking Indra and the repo management team. Previous attempts to enable `Let's Encyrpt` signed certificates on the host were returning two errors, below: 
+
+```
+Running `sudo -u admin /usr/local/bin/ghe-ssl-acme -p -i` and writing log to /tmp/acme-issue.log.20221104-3297-pxs2n8, pid=5855
+---> Running sudo -u acme-client acme.sh --allow-sudo --syslog 6 --config-home /tmp/tmp.acme-workdir.nCSLvqUty3  --issue --stateless -d ghe-scaletesting.sgdev.org
+[Fri 04 Nov 2022 12:04:17 PM UTC] Domains not changed.
+[Fri 04 Nov 2022 12:04:17 PM UTC] Skip, Next renewal time is: Mon 02 Jan 2023 06:25:19 PM UTC
+[Fri 04 Nov 2022 12:04:17 PM UTC] Add '--force' to force to renew.
+---> End (failed: 2)
+ghe-ssl-acme error: The certificate at /tmp/tmp.acme-workdir.nCSLvqUty3/ghe-scaletesting.sgdev.org/fullchain.cer is not present; did ACME fail?
+```
+
+and the following error in a banner when trying to save changes in the management console
+```
+"Github ssl cert The certificate is not signed by a trusted certificate authority (CA) or the certificate chain is missing intermediate CA signing certificates."
+```
+
+I took an educated guess and logged into the applicance, and ran the commands I found in [this documentation](https://docs.github.com/en/enterprise-server@3.6/admin/configuration/configuring-your-enterprise/command-line-utilities#ghe-ssl-acme)
+
+Despite previous attempts to sign install the let's encrypt signed cert via the UI, I was still seeing the self-signed certificate when running `ghe-ssl-acme -s`. I was able to remove this cert by running `ghe-ssl-acme -x`, and generate a new Let's Encrypt certificate by running  `ghe-ssl-acme -e -v` which was successful. I verified this via the cli with the snippet below as well as in the browser. 
+
+```
+admin@ghe-scaletesting-sgdev-org:~$ ghe-ssl-acme -s
+SSL enabled:           true
+Active certificate CA: Let's Encrypt
+ACME enabled:          true
+ACME provider:         letsencrypt
+ACME ToS accepted:     true
+ACME Contact E-mail:
+ACME Account Key:      (key is set; retrieve with `ghe-config "secrets.acme.account-key"`)
+ACME CA conf string:   (CA conf is set; retrieve with `ghe-config "github-ssl.acme.ca-conf"`)
+```
+
 ## 2022-10-26
 
 @burmudar so I got access to the EKS cluster on AWS to transfer some Bitbucket repos out. Accessing the cluster rightfully so, isn't exactly straight forward. For any changes that require access to the kube API you first need to add **your** ip to the allowed ip's in the advanced networking panel. Now that you've got kube API access all is good right ? WRONG.
