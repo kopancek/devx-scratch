@@ -5,7 +5,6 @@ DevX support rotation log. To add an entry, just add an H2 header with ISO 8601 
 ## 2022-11-16
 @burmudar A bit late but thought I'd log two things. Plus this is also valuable keyboard practice that I need.
 
-
 ### Thing 1: Sneaking in unformatted changes into main
 
 For a while prettier was disabled on our pipelines due to its flakiness. @pjlast decided to fix it by adding a format linter to be executed as part of all the linters we execute when we do `sg lint`. In the pipeline we look at the diff to decide what linters the pipeline will execute for your build. So if your changeset touched Go files and frontend Typescript then the lint targets on your pipeline would be `go` and `client`. With @pjlast change, the `format` lint target would also be added autmatically by `sg`.
@@ -14,8 +13,13 @@ Now that we have some background, we can ask the question "How did unformatted c
 
 Digging into the `sg lint` code we can see that most of the logic is concerned with executing lint with no arguments which means execute all lint targets, and when you specify **more than one lint target**. Considering our bug happens **when we specify exactly one argument** where getting closer to the code that is misbehaving. Indeed, when looking at the this branch of code we can clearly see that there is no code to add the formatter to the linters being executed. So the fix was to ensure the format linter is also added when a single linter is specified.
 
-### Thing 2: Thorsten and Foreshadowind
+### Thing 2: Thorsten and Foreshadowing
 
+A week ago I was on support on a glorious Monday, and then horror struck. Opsgenie decided to play the song of its people. Dotcom was unavailable ... After some confused internal screaming I logged in and started an [incident](https://app.incident.io/incidents/154). Poor Dave was also woken up by OpsGenie and was already diagnosing what was wrong. Frontend was not coming up and was stuck in pending as it was waiting for migrator to finish running since migrator is its init container. Eventually Thorsten joined and started running some queries to see why the migrator was taking so long to run. After a few tactical queries, Thorsten saw that migrator was waiting on a lock which repo-updater was holding because of a repo-sync job. He cancelled the job and then migrator was able to complete! And just like that frontend came up and dotCom was reachable again. We made sure to record the queries that were executed in the [incident](https://app.incident.io/incidents/154) summary since they were crucial in resolving the [incident](https://app.incident.io/incidents/154).
+
+Fast forward to today and we have a similar issue in scaletestind. Only now, migrator wasn't hanging around and it went into a crashloopbackoff. Before it got restarted by kubernetes the log reported that there was a single dirty migration. @sanderginn remembered that the migrator has cli arg for this exact situation. So he patched the deployment to add this arg to the migrator invocation. By doing that we got a little forward, and now migrator was taking a long time to run ... like our previous [incident](https://app.incident.io/incidents/154)!
+
+I remembered that we documented all the queries so I opened the [incident](https://app.incident.io/incidents/154) again while also starting up my cloud-sql-proxy with `cloud_sql_proxy -instances=sourcegraph-scaletesting:us-central1:sg-scaletesting-d2d240d290=tcp:5555` and grabbed the [incident](https://app.incident.io/incidents/154) queries from the summary we wrote. With the queries in hand I was able to identified why migrator was blocked - it was because of repo-updater and a sync job. I unblocked it by cancelling the job that was causing repo-updater to hold a lock on the table. After doing that, migrator finished up and frontend started up again!
 
 ## 2022-10-24
 
