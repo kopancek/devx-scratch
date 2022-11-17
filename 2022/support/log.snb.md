@@ -2,17 +2,32 @@
 
 DevX support rotation log. To add an entry, just add an H2 header with ISO 8601 format. The first line should be a list of everyone involved in the entry. For ease of use and handing over issues, **this log should be in reverse chronological order**, with the most recent entry at the top.
 
-## 2022-10-24 
+## 2022-11-16
+@burmudar A bit late but thought I'd log two things. Plus this is also valuable keyboard practice that I need.
+
+
+### Thing 1: Sneaking in unformatted changes into main
+
+For a while prettier was disabled on our pipelines due to its flakiness. @pjlast decided to fix it by adding a format linter to be executed as part of all the linters we execute when we do `sg lint`. In the pipeline we look at the diff to decide what linters the pipeline will execute for your build. So if your changeset touched Go files and frontend Typescript then the lint targets on your pipeline would be `go` and `client`. With @pjlast change, the `format` lint target would also be added autmatically by `sg`.
+
+Now that we have some background, we can ask the question "How did unformatted changes sneak into main?", since we had quite a few devs say that their build failed on a file they didn't touch and it is unrelated to their change. As luck would have it, when I ran `sg lint format` on main I got a failure. I looked at git blame and found the PR where the change came in and to my surprise the lint step did run and had no failure! How could this be!? Looking at lint step for the build that ran I saw that it executed `sg lint client` which I then ran locally on the same branch as well. Low and behold it passed, but when I ran `sg lint format` it failed. Puzzled I tried a few more variations `sg lint`,`sg lint go client` and `sg lint go`. In two cases the format check did run but whenever you specified just one lint target the format lint didn't run. So in if in your PR the detected changes results in only one target like ui changes the format check would not run and your unformatted changes on your branch gets in. Ok, so we've narrowed down the condition a bit, time to go see WHY.
+
+Digging into the `sg lint` code we can see that most of the logic is concerned with executing lint with no arguments which means execute all lint targets, and when you specify **more than one lint target**. Considering our bug happens **when we specify exactly one argument** where getting closer to the code that is misbehaving. Indeed, when looking at the this branch of code we can clearly see that there is no code to add the formatter to the linters being executed. So the fix was to ensure the format linter is also added when a single linter is specified.
+
+### Thing 2: Thorsten and Foreshadowind
+
+
+## 2022-10-24
 
 @jhchabran / @burmudar  quick recap about the bets and cooldown:
 
 - Wrap up the bet and share the result
 - Get stuff ready for the batch changes team
-  - 200k repos 
-    - need to make them private 
+  - 200k repos
+    - need to make them private
   - codehostcopy
 - Extract the repo thing into its own package for resuming
-- Boot up things with permissions on GHE 
+- Boot up things with permissions on GHE
 - Create the new bet for scale testing
 - Take some time to make sure https://github.com/sourcegraph/sourcegraph/issues/42140 works.
 
@@ -22,10 +37,10 @@ DevX support rotation log. To add an entry, just add an H2 header with ISO 8601 
 
 DevX was flagged that S2 had not been deployed to for 6 days. What turned out to be the root cause is that the [IAM bindings on the service account](https://sourcegraph.sourcegraph.com/github.com/sourcegraph/infrastructure/-/blob/gcp/org/managed_instance_folder_iam_bindings.tf?L68-76) that is in use by GitHub Actions (where CD takes place) are [frequently undone by a non-Terraform change](https://sourcegraph.slack.com/archives/C1JH2BEHZ/p1666205521693909?thread_ts=1666202912.133939&cid=C1JH2BEHZ). This causes the SA to lose the permission `compute.instances.list`, which is needed to get details on the current deployment context of the managed instance.
 
-What made this particularly difficult to debug is that the missing permission error thrown by `gcloud` was not caught as an error by the `run.Cmd().Run()` [execution](https://sourcegraph.sourcegraph.com/github.com/sourcegraph/deploy-sourcegraph-managed@main/-/blob/util/pkg/config/config.go?L206-209&subtree=true). The function `fetchDeployment` in turn [does not return an error](https://sourcegraph.sourcegraph.com/github.com/sourcegraph/deploy-sourcegraph-managed@main/-/blob/util/pkg/config/config.go?L232&subtree=true) when there are no instances found matching the filter on line 215.  
+What made this particularly difficult to debug is that the missing permission error thrown by `gcloud` was not caught as an error by the `run.Cmd().Run()` [execution](https://sourcegraph.sourcegraph.com/github.com/sourcegraph/deploy-sourcegraph-managed@main/-/blob/util/pkg/config/config.go?L206-209&subtree=true). The function `fetchDeployment` in turn [does not return an error](https://sourcegraph.sourcegraph.com/github.com/sourcegraph/deploy-sourcegraph-managed@main/-/blob/util/pkg/config/config.go?L232&subtree=true) when there are no instances found matching the filter on line 215.
 The end result is that an empty string is returned by `fetchDeployment`, which causes `ActiveDeploymentRoot` to [return an empty string too](https://sourcegraph.sourcegraph.com/github.com/sourcegraph/deploy-sourcegraph-managed@main/-/blob/util/pkg/fs/fs.go?L54-61), and ultimately leading to `ValidDockerComposeFile` to return an error when trying to [get the file status of `docker-compose`](https://sourcegraph.sourcegraph.com/github.com/sourcegraph/deploy-sourcegraph-managed@main/-/blob/util/pkg/fs/fs.go?L114), as it is not prefixed with the directory of the instance being upgraded (something like `deploy-sourcegraph-managed/sg/red`).
 
-The difficulty of debugging is compounded by the fact that GitHub Actions are just a PITA to test. I finally just resorted to hacking the bits of code in `mi` to log/print to stdout, pushing the changes to `create-pull-request/patch` branch that was not being merged (due to the action failing). This branch is fine to throw away and is checked out by the failing job, making things a bit quicker to investigate.  
+The difficulty of debugging is compounded by the fact that GitHub Actions are just a PITA to test. I finally just resorted to hacking the bits of code in `mi` to log/print to stdout, pushing the changes to `create-pull-request/patch` branch that was not being merged (due to the action failing). This branch is fine to throw away and is checked out by the failing job, making things a bit quicker to investigate.
 The output below finally revealed what was going wrong.
 
 ```shell
@@ -40,9 +55,9 @@ The output below finally revealed what was going wrong.
 2022-10-19T17:08:56.9443682Z ##[error]Process completed with exit code 1.
 ```
 
-Security applied the Terraform config granting the appropriate permissions to the SA, after which CD resumed.  
+Security applied the Terraform config granting the appropriate permissions to the SA, after which CD resumed.
 
-Action items: 
+Action items:
 * [monitor for CD failures](https://github.com/orgs/sourcegraph/projects/212/views/47).
 * Investigate Run swallowing errored cmd
 
@@ -50,15 +65,15 @@ Question: is there a better way (less stone-agey approach) to debug Actions?
 
 ## 2022-10-21
 
-@jhchabran @burmudar See https://github.com/sourcegraph/sourcegraph/issues/43282 
+@jhchabran @burmudar See https://github.com/sourcegraph/sourcegraph/issues/43282
 
 ## 2022-10-19
 
-@jhchabran @burmudar: Due to https://sourcegraph.slack.com/archives/C02FLQDD3TQ/p1666186593157969 we looked for recent CI changes. We ruled out the request changes, but the cronjob could be a match. We reverted it in https://github.com/sourcegraph/infrastructure/pull/4097 after observing that it passed on `main` when manually applied. 
+@jhchabran @burmudar: Due to https://sourcegraph.slack.com/archives/C02FLQDD3TQ/p1666186593157969 we looked for recent CI changes. We ruled out the request changes, but the cronjob could be a match. We reverted it in https://github.com/sourcegraph/infrastructure/pull/4097 after observing that it passed on `main` when manually applied.
 
 ## 2022-10-18
 
-@sanderginn Beatrix had asked us over a month ago to add a missing environment variable, `VSCODE_OPENVSX_TOKEN` to the CI agents. This token [is needed](https://sourcegraph.sourcegraph.com/github.com/sourcegraph/sourcegraph/-/blob/client/vscode/scripts/publish.ts?L28) in conjunction with `VSCODE_MARKETPLACE_TOKEN` (which was set already) to run the publish job in CI.    
+@sanderginn Beatrix had asked us over a month ago to add a missing environment variable, `VSCODE_OPENVSX_TOKEN` to the CI agents. This token [is needed](https://sourcegraph.sourcegraph.com/github.com/sourcegraph/sourcegraph/-/blob/client/vscode/scripts/publish.ts?L28) in conjunction with `VSCODE_MARKETPLACE_TOKEN` (which was set already) to run the publish job in CI.
 
 ## 2022-10-10
 
