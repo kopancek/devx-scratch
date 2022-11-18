@@ -2,6 +2,27 @@
 
 DevX support rotation log. To add an entry, just add an H2 header with ISO 8601 format. The first line should be a list of everyone involved in the entry. For ease of use and handing over issues, **this log should be in reverse chronological order**, with the most recent entry at the top.
 
+## 2022-11-18
+
+@marekweb
+
+Fixing the smoke tests for dotcom
+
+@jhchabran noticed that the web smoke tests were broken.  Upon investigation, the smoke tests were not working since July 2022 because the underlying implementation of the search input box changed, which broke the test's ability to fill the input to do a test search.
+
+[I fixed the failing test](https://github.com/sourcegraph/smoke-tests/pull/43) by rewriting it to trigger a search using a query parameter instead of filling the search input box.
+
+Notes about the web smoke tests for dotcom:
+
+ - The smoke tests are triggered every 10 minutes in [pipeline.scheduled-smoke-tests.yaml](https://sourcegraph.sourcegraph.com/github.com/sourcegraph/deploy-sourcegraph-cloud/-/blob/.buildkite/pipeline.scheduled-smoke-tests.yaml)
+ - The test is implemented in [sourcegraph/smoke-tests](https://github.com/sourcegraph/smoke-tests)
+ - The test is deployed to NPM at [@sourcegraph/web-smoke-tests](https://www.npmjs.com/package/@sourcegraph/web-smoke-tests)
+
+Potental future steps:
+
+- We could re-evaluate if the smoke tests are valuable, given that several months went by while they were broken
+- If they are in fact valuable, we could use a better alerting approach than just posting in #alerts-cloud which isn't monitored and is full of noisy alerts
+
 ## 2022-11-16
 @burmudar A bit late but thought I'd log two things. Plus this is also valuable keyboard practice that I need.
 
