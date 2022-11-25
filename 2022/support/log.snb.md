@@ -2,6 +2,31 @@
 
 DevX support rotation log. To add an entry, just add an H2 header with ISO 8601 format. The first line should be a list of everyone involved in the entry. For ease of use and handing over issues, **this log should be in reverse chronological order**, with the most recent entry at the top.
 
+## 2022-11-25
+
+@jhchabran _when banging your head at walls actually reveals a big bug that has been around forever_
+
+while I was working on https://github.com/sourcegraph/sourcegraph/pull/44795 for Erik, I was banging my head at why some file was not present 
+in a volume I was mounting in docker compose in CI and finally came to the horrendous realization that none of the volumes we're mounting are ever present. 
+
+I reached out to @davejrt for a sanity check, (because I do question my sanity often, with reason right?) and that's indeed the case. This is happening because 
+as we're running the docker engine in the dind container of the agent pod/job the paths for bound volumes are not making sense to the engine, because they're evaluated 
+in the dind container, not in the agent container. And that's how we end with blank folders in all these volumes we mounted. 
+
+See https://github.com/sourcegraph/sourcegraph/issues/44816, which is pretty important to fix quickly.
+
+@jhchabran _A tale on how the legendary @davejrt showed again his dark magic to us mere mortals_ 
+
+As part of the above entry, I had to run the executor container which in turn also run some containers on its own. Rather than going for _dindind_, the glorious @davejrt had the idea of simply exposing 
+the `DOCKER_HOST=localhost:2375` to the executor container. He said it like, hahah that might work, you know like how you say it when you now that some random crap is going to get in the way 
+and mess up the glorious idea. But, if you allow me to use @davejrt's native tongue, _fucking worked_. 
+
+A haiku about him: 
+
+_docker is a mess_
+_yet dave prevails as always_
+_a true sorcerer_
+
 ## 2022-11-18
 
 @marekweb
