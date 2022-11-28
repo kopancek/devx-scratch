@@ -5,6 +5,52 @@ DevX teammates hacking on Sourcegraph's observability libraries and tooling, bot
 To add an entry, just add an H2 header starting with the ISO 8601 format, a topic.
 **This log should be in reverse chronological order.**
 
+- ## 2022-11-21 Multiple pipelines and FilterProcessor
+
+@burmudar Valery wanted to enable exporting traces from dotCom to Honeycomb for some of the frontend observability he is working on. I was a bit hesitant since we don't have the safe guards in place (that I think) we need. Regardless, we went ahead in enabling it so we paired a bit on it. One of the passive requirements was that we didn't want to affect the current tracing that was being sent from the backend to Honeycomb. We opted to create a dotCom environment in Honeycomb which means it would have the nice property of being a V2 dataset compared to the V1 "classic" dataset that the backend was currently emitting too. Additionally, we can attach certain API keys to the environment and thus if volume becomes an issue we can turn off only this key and leave the backend tracing unaffected and we don't need to do a deployment to do it either!
+
+The problem though, was how to distinguish that for certain traces the otel-collector should handle them differently. So we went looking at some of the processors and we found the FilterProcessor which in version 0.64 and above supports operating on traces! Okay, so we can filter traces now, but how do we split traces to go to separate pipelines. Turns out you can have multiple exporters, receivers, processors and pipelines of the __same__ type! The otel collector uses the format `type/name` for all these parts that make up the otel collector config. That you can have 2 exporters `otlp/honeycomb-all` and `otlp/honeycomb-webapp` both exporting to honeycomb but using different API keys. So using this we defined the following pipeline which took all traces of the web-app service and exports it to the V2 evironment on dotCom.
+
+```
+receivers
+    otlp:
+        http:
+        grpc:
+
+exporters:
+    googlecloud:
+        retry_on_failure:
+            enabled: false
+    otlp/honeycomb-webapp:
+        endpoint: "api.honeycomb.io:443"
+        headers:
+            "x-honeycomb-team": "THE API KEY"
+
+processors:
+    tail_sampling:
+        # tail sampling policies
+
+    filter/webapp:
+        spans:
+            include:
+                match_type: 'strict'
+                services:
+                    - web-app
+
+pipelines:
+    traces/all:
+        receivers: [otlp]
+        processors: [tail_sampling]
+        exporters: [googlecloud]
+    traces/webapp:
+        receivers: [otlp]
+        processors: [filter/webapp]
+        exporters: [otlp/webapp]
+
+```
+
+From the above we have two pipelines. `tracer/all` which will receive all traces and apply tail sampling and export it to googlecloud. Then, we have a second pipeline which also receives all traces (due to the oltp receiver being shared), but we filter out all traces out who are not part of the `web-app` service.
+
 ## 2022-08-30 Deploying `otel-collector` to k8s (no helm)
 
 @bobheadxi @jhchabran @sanderginn
