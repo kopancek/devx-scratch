@@ -2,6 +2,16 @@
 
 DevX support rotation log. To add an entry, just add an H2 header with ISO 8601 format. The first line should be a list of everyone involved in the entry. For ease of use and handing over issues, **this log should be in reverse chronological order**, with the most recent entry at the top.
 
+## 2022-12-01 
+
+@jhchabran Felix Becker had some issues with `sg start`. He's running `pwsh` which was a fun things to toy with. It's now fixed. 
+
+Things that needed fixing: 
+
+- the homebrew path `/opt/homebrew/bin` was after `/usr/bin` so it wasn't picking up the right version for `git` and others
+- `$Env:SHELL = '/opt/homebrew/bin/bash` ; sg ...` is always mandatory for it to work
+- needed to set some yarn / node versions manually as Felix prefers to use it over asdf (assumed it's the case, didn't ask, but it's working so it's all good).
+
 ## 2022-11-25
 
 @jhchabran _when banging your head at walls actually reveals a big bug that has been around forever_
