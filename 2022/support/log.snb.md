@@ -2,6 +2,25 @@
 
 DevX support rotation log. To add an entry, just add an H2 header with ISO 8601 format. The first line should be a list of everyone involved in the entry. For ease of use and handing over issues, **this log should be in reverse chronological order**, with the most recent entry at the top.
 
+## 2022-12-05
+
+@jhchabran, @burmudar _YAML is HELL_. 
+
+This morning Filip reached out over [Slack](https://sourcegraph.slack.com/archives/CMBA8F926/p1670228604601039) about S2 and the research instance being unavailable. After digging around, it looked like the environmment was messed up. 
+
+We first tried to rollback, which isn't directly possible on CD powered deployments, so I patched the GitHub action to include an additional input to force a tag: https://github.com/sourcegraph/deploy-sourcegraph-managed/pull/2423 and https://github.com/sourcegraph/deploy-sourcegraph-managed/pull/2421.
+Nevertheless, it didn't work, because the issue was coming from the golden files. A recent update to those files introduced a bug caused by the YAML obscure semantics: https://github.com/sourcegraph/deploy-sourcegraph-managed/commit/38c76c611f6033025e9dcbbc53eb67ffbb49ef7a#diff-4662fb8a50bdbb28d9025f6e723876b0706c0d0798ab76bfba873963f288674cR54
+
+YAML can't merge stuff within anchors. Final fix is here: https://github.com/sourcegraph/deploy-sourcegraph-managed/pull/2439
+
+Also, if you need to check what's the final output of some YAML, `cue eval docker-compose.cloud.yaml` is the answer. 
+
+_Data, dreadfully complex_
+_YAML is a dreadful bane_
+_Formatting in pain_
+
+DURATION=3h
+
 ## 2022-12-01 
 
 @jhchabran Felix Becker had some issues with `sg start`. He's running `pwsh` which was a fun things to toy with. It's now fixed. 
