@@ -20,6 +20,14 @@ Waited a few hours, but noticed that permissions are not updating at all. After 
 Found out the user is `dev-experience-team@sourcegraph.com`, promoted the user to site-admin and purged it's records from the `user_permissions` table.
 Restarted the pod again and now it seems like perms syncing is being properly scheduled again.
 
+We had a hunch that internal rate limiter might be hindering the perms syncer performance. We increased the rate limit on the [GHE Scaletesting code host](https://scaletesting.sgdev.org/site-admin/external-services/RXh0ZXJuYWxTZXJ2aWNlOjI2) by adding the following configuration:
+```
+"rateLimit": {
+    "enabled": true,
+    "requestsPerHour": 25000
+  }
+```
+Note: this might be dangerous if other services hammer the same ghe instance as well (gitserver, frontend, etc.). Which should not be the case for us at the moment. We also do not have any rate limit forced on ghe API side, so we should be OK to do this.
 
 ## 2022-12-06
 
