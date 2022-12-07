@@ -5,6 +5,46 @@ DevX teammates and teammates hacking on Sourcegraph's scaletesting set of tools.
 To add an entry, just add an H2 header starting with the ISO 8601 format, a topic.
 **This log should be in reverse chronological order.**
 
+## 2022-12-07
+
+@milan
+Found out, that permission syncing is still slow. Added the following to the site-config:
+```
+"permissions.syncUsersMaxConcurrency": 8,
+```
+
+Played with this value a bit and restarted the `repo-updater` pod a few times (by deleting it).
+
+Waited a few hours, but noticed that permissions are not updating at all. After some investigation, I found out on [Outbound requests page](https://scaletesting.sgdev.org/site-admin/outbound-requests) that there is a user that requests 190 pages of repositories, so it seemed like the user had 200k repositories attached on ghe instance.
+
+Found out the user is `dev-experience-team@sourcegraph.com`, promoted the user to site-admin and purged it's records from the `user_permissions` table.
+Restarted the pod again and now it seems like perms syncing is being properly scheduled again.
+
+
+## 2022-12-06
+
+@milan
+Removed enforcement of permissions from the [Perforce code host](https://scaletesting.sgdev.org/site-admin/external-services/RXh0ZXJuYWxTZXJ2aWNlOjI1)
+Purged tables from the Postgres DB:
+```
+repo_permissions
+user_permissions
+repo_pending_permissions
+user_pending_permissions
+sub_repo_permissions
+```
+Added enforcement of permissions to the [GHE Scaletesting code host](https://scaletesting.sgdev.org/site-admin/external-services/RXh0ZXJuYWxTZXJ2aWNlOjI2)
+
+Waited for an hour and looked at the metrics. 
+
+Stopped enformcement of permissions and then added the following to the site-config:
+```
+"permissions.syncOldestRepos": 1,
+"permissions.syncOldestUsers": 150,
+```
+
+Purged the DB tables again and restarted the enforcement of permissions
+
 ## 2022-11-04
 
 @davejrt the self-signed TLS certificiate for [ghe-scalingesting.sgdev.org](https://ghe-scaletesting.sgdev.org) was blocking Indra and the repo management team. Previous attempts to enable `Let's Encyrpt` signed certificates on the host were returning two errors, below: 
